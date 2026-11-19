@@ -5,31 +5,57 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gen402 — x402 Data Marketplace on GenLayer</title>
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 880px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
-  .card { border: 1px solid #ccc; border-radius: 12px; padding: 1rem 1.2rem; margin: 1rem 0; }
-  .badge { display: inline-block; background: #eee; border-radius: 999px; padding: .1rem .6rem; font-size: .8rem; }
-  .match { background: #d6f5d6; } .mismatch { background: #ffd6d6; } .unreach { background: #ffe9b0; }
-  .note { background: #fff8e1; border: 1px solid #e6c200; border-radius: 12px; padding: 1rem 1.2rem; margin: 1rem 0; }
-  pre { background: #111; color: #d6ffd6; padding: .8rem; border-radius: 8px; overflow: auto; font-size: .8rem; }
-  button, input { padding: .45rem .7rem; margin: .2rem .2rem .2rem 0; }
-  input { width: 26rem; max-width: 100%; }
+  :root { --paper: #f5efdc; --card: #fffdf2; --ink: #22242a; --navy: #1c2b45; --green: #2e7d32; --line: #232323; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; background: var(--paper); color: var(--ink); max-width: 880px; margin: 0 auto; padding: 2rem 1rem 3rem; line-height: 1.5; }
+  h1 { font-family: Georgia, 'Times New Roman', serif; font-size: 2rem; margin: 0 0 .3rem; }
+  h1 small { font-size: 1rem; vertical-align: super; color: #555; }
+  h2 { font-family: Georgia, 'Times New Roman', serif; font-size: 1.3rem; margin: 2rem 0 .5rem; }
+  .subtitle { margin: 0 0 1rem; color: #444; }
+  .meta { font-size: .85rem; }
+  .meta code { font-size: .8rem; }
+  .label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: #555; margin: 0 0 .4rem; }
+  .card { background: var(--card); border: 1.5px solid var(--line); border-radius: 6px; padding: 1rem 1.2rem; margin: 1rem 0; }
+  .card h3 { font-family: Georgia, 'Times New Roman', serif; font-size: 1.25rem; margin: 0 0 .3rem; }
+  .badge { display: inline-block; background: #eee; border: 1px solid #999; border-radius: 999px; padding: .1rem .6rem; font-size: .8rem; }
+  .stamp { display: inline-block; border: 2px solid var(--green); color: var(--green); border-radius: 4px; padding: .05rem .5rem; font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; transform: rotate(-4deg); font-weight: 700; }
+  .stamp.mismatch { border-color: #b3261e; color: #b3261e; }
+  .stamp.unreach { border-color: #8a6d00; color: #8a6d00; }
+  .note { background: #fff8e1; border: 1.5px solid #c9a227; border-radius: 6px; padding: 1rem 1.2rem; margin: 1rem 0; }
+  pre { background: #111; color: #d6ffd6; padding: .8rem; border-radius: 6px; overflow: auto; font-size: .8rem; }
+  button { background: var(--navy); color: #fff; border: 1.5px solid var(--navy); border-radius: 4px; padding: .5rem .9rem; margin: .2rem .2rem .2rem 0; cursor: pointer; font-weight: 600; }
+  button:hover { background: #2a3f66; }
+  input { padding: .45rem .7rem; margin: .2rem .2rem .2rem 0; width: 26rem; max-width: 100%; border: 1.5px solid var(--line); border-radius: 4px; background: #fff; }
   small { color: #555; }
+  a { color: var(--navy); }
+  .events { list-style: none; padding: 0; margin: 0; }
+  .events li { padding: .45rem 0; border-bottom: 1px solid #d8d2bd; font-size: .92rem; }
+  .events li:last-child { border-bottom: none; }
+  .events b { font-size: .78rem; letter-spacing: .08em; }
+  .events code { font-size: .78rem; }
+  .head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+  .foot { margin-top: 2.5rem; font-size: .82rem; color: #555; border-top: 1px solid #d8d2bd; padding-top: .8rem; }
 </style>
 </head>
 <body>
-<h1>Gen402 — x402 Data Marketplace</h1>
-<p>Paid data on GenLayer (studionet, chain 61999). No facilitator, no API keys:
-you pay the Intelligent Contract, the gateway checks your access on-chain,
-then serves the data. The contract itself fetches each listing's source and
-its validators' LLMs judge whether the data matches the listing.</p>
-<div class="note"><b>Static GitHub Pages demo.</b> The listings, prices and AI verdict below are
-real data from the live studionet deployment. The “Request without payment” button shows the
-exact HTTP 402 challenge the gateway returns (simulated here, in your browser). Serving the
-paid data itself needs the gateway running — see
+<div class="head-row">
+  <div>
+    <h1>Gen402 <small>v1</small></h1>
+    <p class="subtitle">x402 Data Marketplace — paid data on GenLayer, verified by validators.</p>
+  </div>
+  <span class="stamp">Live · Studionet</span>
+</div>
+<p class="meta">Contract <a href="https://explorer-studio.genlayer.com/address/0x097B786EB45d630826f9814b87894bDA8Bddf77B" target="_blank">0x097B…77B</a> · <b>studionet (chain 61999)</b><br>
+<small>Deploy tx <code>0x0b89f666b4eda00841eb417a4a4fa501c5123cbd894546531258a2088799c3dd</code> (consensus ACCEPTED)</small></p>
+
+<div class="note"><p class="label">Static GitHub Pages demo</p>
+The listings, prices and AI verdict below are real data from the live studionet deployment.
+The “Request without payment” button shows the exact HTTP 402 challenge the gateway returns
+(simulated here, in your browser). Serving the paid data itself needs the gateway running — see
 <a href="https://github.com/isnoop4/genlayer-x402-marketplace#readme">the repo README</a>:
 <code>CONTRACT_ADDRESS=0x097B786EB45d630826f9814b87894bDA8Bddf77B node gateway/server.js</code>.</div>
-<p>Contract: <a href="https://explorer-studio.genlayer.com/address/0x097B786EB45d630826f9814b87894bDA8Bddf77B" target="_blank">0x097B786EB45d630826f9814b87894bDA8Bddf77B</a> · chain 61999 · studionet<br>
-<small>Deploy tx <code>0x0b89f666b4eda00841eb417a4a4fa501c5123cbd894546531258a2088799c3dd</code> (consensus ACCEPTED)</small></p>
+
+<p class="label">Marketplace · 3 listings</p>
 <div id="listings"></div>
 
 <h2>Try the 402 flow</h2>
@@ -43,6 +69,19 @@ paid data itself needs the gateway running — see
 
 <h2>Result</h2>
 <pre id="out">Nothing yet.</pre>
+
+<div class="card">
+  <p class="label">On-chain activity · verified</p>
+  <ul class="events">
+    <li>■ <b>DEPLOYED</b> — Contract deployed on studionet · <a href="https://explorer-studio.genlayer.com/tx/0x0b89f666b4eda00841eb417a4a4fa501c5123cbd894546531258a2088799c3dd" target="_blank"><code>0x0b89…c3dd</code></a></li>
+    <li>■ <b>SEEDED</b> — 3 listings created · <a href="https://explorer-studio.genlayer.com/tx/0x0abd1b6fb75a3a97d606cfcfdac1d239da533ecddfb846ae5905f228c826da92" target="_blank"><code>0x0abd…da92</code></a> · <a href="https://explorer-studio.genlayer.com/tx/0x20889ff99b70b012ed482df1d848c5e88d7d6f3b2eb82af011e7ea2ee0af8cf2" target="_blank"><code>0x2088…8cf2</code></a> · <a href="https://explorer-studio.genlayer.com/tx/0xfcf6caea30ee04e5673697651b4d706b9c9cfa83ebabada239141ea0ad187982" target="_blank"><code>0xfcf6…7982</code></a></li>
+    <li>■ <b>BOUGHT</b> — buy_access(1), 1 GEN · <a href="https://explorer-studio.genlayer.com/tx/0xea5797d4b2b7d554214489677c67f33c8beadd75bbfc533e3dda740eb5152f95" target="_blank"><code>0xea57…2f95</code></a></li>
+    <li>■ <b>VERIFIED</b> — verify_delivery(1): MATCH, 96% — CoinGecko BTC price matches the listing · <a href="https://explorer-studio.genlayer.com/tx/0x9e21be0bda486366e2b9d8c4fcf8efb9d27faa3a1491ca58d409ed7cfec2eec0" target="_blank"><code>0x9e21…2ec0</code></a></li>
+    <li>■ <b>CREDITED</b> — buy_credits(2, 10), 1 GEN · calls_left 10 → 9 after serving · <a href="https://explorer-studio.genlayer.com/tx/0xcb21d97d32c63ab86d1e5863c75c3441ac001615c309010a5ace4a450a54b1f1" target="_blank"><code>0xcb21…b1f1</code></a></li>
+  </ul>
+</div>
+
+<p class="foot">Gen402 · one Intelligent Contract, three pricing models, zero middlemen. No facilitator, no API keys: you pay the contract, the gateway checks your access on-chain, then serves the data.</p>
 
 <script>
 const CONTRACT = "0x097B786EB45d630826f9814b87894bDA8Bddf77B";
@@ -80,13 +119,13 @@ function x402Body(l) {
 }
 document.getElementById('listings').innerHTML = LISTINGS.map(l => {
   const v = l.verdict;
-  const vcls = !v ? '' : v.verdict === 'MATCH' ? 'match' : v.verdict === 'MISMATCH' ? 'mismatch' : 'unreach';
-  return '<div class="card"><h3>#' + l.id + ' ' + l.title + '</h3>'
+  const vcls = !v ? '' : v.verdict === 'MATCH' ? '' : v.verdict === 'MISMATCH' ? 'mismatch' : 'unreach';
+  return '<div class="card"><div class="head-row"><h3>#' + l.id + ' ' + l.title + '</h3>'
+    + (v ? '<span class="stamp ' + vcls + '">' + v.verdict + ' · ' + v.confidence + '%</span>' : '') + '</div>'
     + '<p>' + l.description + '</p>'
     + '<p><span class="badge">' + l.model_name + '</span> <b>' + l.price_human + '</b></p>'
     + '<p><small>Source: ' + l.data_url + '</small></p>'
-    + (v ? '<p>Last AI verdict: <span class="badge ' + vcls + '">' + v.verdict + '</span> '
-        + v.confidence + '% — ' + v.reason + '</p>'
+    + (v ? '<p><small>Last AI verdict: ' + v.reason + '</small></p>'
         : '<p><small>No delivery verdict yet — anyone can call verify_delivery() on-chain.</small></p>')
     + '<button onclick="reqNoPay(' + l.id + ')">Request without payment</button> '
     + '<button onclick="checkPaid(' + l.id + ')">Check payment</button></div>';

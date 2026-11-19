@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # Seed Gen402 listings on studionet via the GenLayer CLI.
 # Usage: CONTRACT=0x... ./deploy/seed.sh
-# The deployer keystore password is read from ~/.genlayer/gen402-deploy.password
-# (throwaway test account, kept outside this repo). Each `genlayer write`
-# reads the password from stdin because the account is locked (no OS keychain
-# in headless containers).
+# The deployer keystore password is read from $PW_FILE (default
+# ~/.genlayer/gen402-deploy.password for the old throwaway test account).
+# Override it per-account, e.g. PW_FILE=~/.genlayer/mykey.password
 set -u
 CONTRACT="${CONTRACT:?set CONTRACT=0x...}"
-PW_FILE="$HOME/.genlayer/gen402-deploy.password"
+PW_FILE="${PW_FILE:-$HOME/.genlayer/gen402-deploy.password}"
 if [ ! -f "$PW_FILE" ]; then echo "missing $PW_FILE" >&2; exit 2; fi
 
 w() { # w <method> <args...>

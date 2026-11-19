@@ -54,9 +54,17 @@ console.log("deployContract returned:", deployResult);
 // ever returns a tx hash instead, the receipt below reveals the address.
 let contract = deployResult;
 if (deployResult.length === 66) {
-  const receipt = await wait(deployResult, "deploy");
-  const cand = receipt && (receipt.contractAddress || receipt.address || receipt.to);
-  if (cand) contract = cand;
+  await wait(deployResult, "deploy");
+  // genlayer-js deployContract returns the deploy tx hash, and the receipt
+  // it returns has no contractAddress on studionet. The Ghost / Intelligent
+  // Contract address is the tx's `to`, so resolve it from the raw receipt.
+  const raw = await fetch(RPC_URL, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", method: "eth_getTransactionReceipt", params: [deployResult], id: 1 }),
+  }).then((r) => r.json());
+  const cand = raw?.result?.to;
+  if (!cand) throw new Error("could not resolve contract address from deploy receipt");
+  contract = cand;
 }
 out.contractAddress = contract;
 out.explorer = `https://explorer-studio.genlayer.com/address/${contract}`;

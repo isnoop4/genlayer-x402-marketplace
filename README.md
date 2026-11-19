@@ -23,28 +23,31 @@ dispute court, no human moderator, no off-chain facilitator holding funds.
 
 ## Live deployment (studionet, chain 61999)
 
-- **Contract:** `0x097B786EB45d630826f9814b87894bDA8Bddf77B`
-- **Explorer:** https://explorer-studio.genlayer.com/address/0x097B786EB45d630826f9814b87894bDA8Bddf77B
-- **Deploy tx:** `0x0b89f666b4eda00841eb417a4a4fa501c5123cbd894546531258a2088799c3dd`
-  (deployed with the GenLayer CLI, `genlayer deploy`; consensus ACCEPTED)
-- **Deployer (throwaway test account):** `0xe83996598c9950b011f072eb62efe2595b09312f`
+- **Contract:** `0x3B0850628992B0F322D1Af7196a9337AdF7655B4`
+- **Explorer:** https://explorer-studio.genlayer.com/address/0x3B0850628992B0F322D1Af7196a9337AdF7655B4
+- **Deploy tx:** `0xe18938185a0a0473a79346f2cd3f9328732d92414ce4f1ed8f0c9d891e3c5f4d`
+  (deployed with `deploy/deploy.mjs` via genlayer-js; consensus ACCEPTED)
+- **Deployer:** `0xfD7d408f5Cc0A4d507bDc41c48B4A00A8C9Fc399` (Irfan's testnet wallet —
+  redeployed 2026-11-19 so the on-chain deployer matches the portal submitter;
+  the first deployment `0x097B786EB45d630826f9814b87894bDA8Bddf77B` from a throwaway
+  test account is superseded)
 - **Seed listings** (`deploy/seed.sh`, `genlayer write create_listing`):
-  - #1 BTC Price Snapshot — tx `0x0abd1b6fb75a3a97d606cfcfdac1d239da533ecddfb846ae5905f228c826da92`
-  - #2 Jakarta Weather Now — tx `0x20889ff99b70b012ed482df1d848c5e88d7d6f3b2eb82af011e7ea2ee0af8cf2`
-  - #3 Top Crypto Market Brief — tx `0xfcf6caea30ee04e5673697651b4d706b9c9cfa83ebabada239141ea0ad187982`
+  - #1 BTC Price Snapshot — tx `0x90f99a436d6a0673971a1cc8b744cbdd4359653db8ed3000037ba639aa47e37f`
+  - #2 Jakarta Weather Now — tx `0x7f14dad098ea07056a3218ce39d8f6a5f4b4c2bb8f1ceddb775146fd143cc490`
+  - #3 Top Crypto Market Brief — tx `0x5643b101b3d1ac9c551f99fd26f7ee212ca3e42e07ddbfd5c9918f82db7eac68`
 - **Buy + AI verify:** see `deployment.json` (written by `deploy/interact.mjs`).
-  - `buy_access(1)`, 1 GEN: tx `0xea5797d4b2b7d554214489677c67f33c8beadd75bbfc533e3dda740eb5152f95` (FINALIZED)
-  - `verify_delivery(1)`: tx `0x9e21be0bda486366e2b9d8c4fcf8efb9d27faa3a1491ca58d409ed7cfec2eec0` (FINALIZED)
-  - On-chain read-back: `has_access = true`, verdict **MATCH, 96%**
-    ("The source is a valid CoinGecko simple-price JSON response
-    ({\"bitcoin\":{\"usd\":62759}})…"), seller balance 1 GEN (10¹⁸ wei).
+  - `buy_access(1)`, 1 GEN: tx `0xe9dcb85e4e6194b0683ea9312253d33678561c4b930c7c4ae9e3f2b236a78f14` (FINALIZED)
+  - `verify_delivery(1)`: tx `0x6796a5c338f810d0b5089215b7bb59faa357aa8ebe308e8d2512028ff83636e3` (FINALIZED)
+  - On-chain read-back: `has_access = true`, verdict **MATCH, 99%**
+    ("The source contains valid JSON with a Bitcoin price in USD, matching
+    the listing's promised BTC/USD price data."), seller balance 2 GEN.
 - **Gateway:** run `node gateway/server.js` with `CONTRACT_ADDRESS` set
   (see below) — it reads listings and access from this contract.
   Live-tested 2026-11-19 against this contract:
-  - real `buy_access(1)` tx → **200** `{"bitcoin":{"usd":62760}}`
+  - real `buy_access(1)` tx → **200** `{"bitcoin":{"usd":62594}}`
   - real `buy_credits(2, 10)` tx → **200**, live Open-Meteo Jakarta JSON;
     `buy_credits(2, 10)`, 1 GEN: tx
-    `0xcb21d97d32c63ab86d1e5863c75c3441ac001615c309010a5ace4a450a54b1f1`
+    `0x2301b89ca9b2456f5e979e81c43029b375f117381f6223721e171372ba0342b5`
     (FINALIZED); the gateway's `use_call` then deducted one credit
     on-chain (`calls_left` 10 → 9)
   - deploy tx as payment → **402**; seed tx #2 as payment for listing #1

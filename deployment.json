@@ -1,0 +1,65 @@
+{
+  "network": "studionet",
+  "chainId": 61999,
+  "rpc": "https://studio.genlayer.com/api",
+  "contractAddress": "0x097B786EB45d630826f9814b87894bDA8Bddf77B",
+  "account": "0xE83996598C9950b011F072eb62efE2595B09312f",
+  "explorer": "https://explorer-studio.genlayer.com/address/0x097B786EB45d630826f9814b87894bDA8Bddf77B",
+  "steps": {
+    "buyAccess1": "0xea5797d4b2b7d554214489677c67f33c8beadd75bbfc533e3dda740eb5152f95",
+    "verifyDelivery1": "0x9e21be0bda486366e2b9d8c4fcf8efb9d27faa3a1491ca58d409ed7cfec2eec0",
+    "verifyDelivery1Finalized": true,
+    "buyCredits2": "0xcb21d97d32c63ab86d1e5863c75c3441ac001615c309010a5ace4a450a54b1f1",
+    "buyCredits2Finalized": true,
+    "gatewayUseCall2": "calls_left 10 -> 9 after the gateway served /data/2 once"
+  },
+  "gatewayVerification": {
+    "realBuyAccess1": "200, {\"bitcoin\":{\"usd\":62760}}",
+    "deployTxAsPayment": "402",
+    "seedTx2AsPaymentForListing1": "402",
+    "buyAccessTxAsPaymentForListing2": "402",
+    "realBuyCredits2": "200, live Open-Meteo Jakarta JSON",
+    "note": "gateway loads the presented tx with genlayer-js and requires from==buyer, to==contract, and the decoded call to be buy_access/buy_credits for that listing with the right value; a receipt-only check was found insufficient (a deploy or create_listing tx from the same buyer passed it) and was replaced"
+  },
+  "reads": {
+    "hasAccess": true,
+    "verdict1": "{\"verdict\": \"MATCH\", \"confidence\": 96, \"reason\": \"The source is a valid CoinGecko simple-price JSON response ({\\\"bitcoin\\\":{\\\"usd\\\":62759}}) giving the current BTC/USD price, which is exactly what the listing describes.\", \"checked_by\": \"e83996598c9950b011f072eb62efe2595b09312f\"}",
+    "sellerBalance": "1000000000000000000",
+    "listings": [
+      {
+        "id": 1,
+        "seller": "e83996598c9950b011f072eb62efe2595b09312f",
+        "title": "BTC Price Snapshot",
+        "description": "Live Bitcoin price in USD from the CoinGecko public API (simple price endpoint). Returns the current BTC/USD price as JSON.",
+        "data_url": "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd",
+        "model": 0,
+        "price_wei": 1000000000000000000
+      },
+      {
+        "id": 2,
+        "seller": "e83996598c9950b011f072eb62efe2595b09312f",
+        "title": "Jakarta Weather Now",
+        "description": "Current weather in Jakarta, Indonesia from the Open-Meteo public API: temperature, humidity, weather code and wind speed.",
+        "data_url": "https://api.open-meteo.com/v1/forecast?latitude=-6.2&longitude=106.8&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m",
+        "model": 1,
+        "price_wei": 100000000000000000
+      },
+      {
+        "id": 3,
+        "seller": "e83996598c9950b011f072eb62efe2595b09312f",
+        "title": "Top Crypto Market Brief",
+        "description": "Top-2 crypto market-cap brief (Bitcoin and Ethereum) from the CoinGecko public markets API: current price, market cap and 24h change.",
+        "data_url": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum&order=market_cap_desc&per_page=2&page=1",
+        "model": 2,
+        "price_wei": 2000000000000000000
+      }
+    ]
+  },
+  "deployTx": "0x0b89f666b4eda00841eb417a4a4fa501c5123cbd894546531258a2088799c3dd",
+  "deployer": "0xe83996598c9950b011f072eb62efe2595b09312f",
+  "seedTxs": {
+    "1": "0x0abd1b6fb75a3a97d606cfcfdac1d239da533ecddfb846ae5905f228c826da92",
+    "2": "0x20889ff99b70b012ed482df1d848c5e88d7d6f3b2eb82af011e7ea2ee0af8cf2",
+    "3": "0xfcf6caea30ee04e5673697651b4d706b9c9cfa83ebabada239141ea0ad187982"
+  }
+}

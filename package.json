@@ -1,0 +1,22 @@
+{
+  "name": "gen402",
+  "version": "1.0.0",
+  "description": "Gen402 - x402 Data Marketplace on GenLayer (studionet)",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "start": "node gateway/server.js",
+    "deploy": "node deploy/deploy.mjs",
+    "test": ".venv/bin/python -m pytest tests/ -v",
+    "lint": ".venv/bin/genvm-lint check contracts/marketplace.py"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "genlayer-js": "^1.1.8"
+  },
+  "type": "module"
+}

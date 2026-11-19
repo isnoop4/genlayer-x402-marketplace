@@ -1,0 +1,22 @@
+# Private keys, keystores, passwords, env files — never commit these.
+*.pem
+*.key
+keystore*.json
+keypair*.json
+.env
+.env.*
+!.env.example
+deployment.local.json
+# The CLI stores its accounts in ~/.genlayer (outside this repo) — good.
+# Python / Node tooling
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+# Local run artefacts
+*.log
+deployment.local.json
+*.pyc
+__pycache__/
+.pytest_cache/

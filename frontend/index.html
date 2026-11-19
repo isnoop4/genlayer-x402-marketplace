@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gen402 — x402 Data Marketplace on GenLayer</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 880px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+  .card { border: 1px solid #ccc; border-radius: 12px; padding: 1rem 1.2rem; margin: 1rem 0; }
+  .badge { display: inline-block; background: #eee; border-radius: 999px; padding: .1rem .6rem; font-size: .8rem; }
+  .match { background: #d6f5d6; } .mismatch { background: #ffd6d6; } .unreach { background: #ffe9b0; }
+  pre { background: #111; color: #d6ffd6; padding: .8rem; border-radius: 8px; overflow: auto; font-size: .8rem; }
+  button, input { padding: .45rem .7rem; margin: .2rem .2rem .2rem 0; }
+  input { width: 26rem; max-width: 100%; }
+  small { color: #555; }
+</style>
+</head>
+<body>
+<h1>Gen402 — x402 Data Marketplace</h1>
+<p>Paid data on GenLayer (studionet, chain 61999). No facilitator, no API keys:
+you pay the Intelligent Contract, the gateway checks your access on-chain,
+then serves the data. The contract itself fetches each listing's source and
+its validators' LLMs judge whether the data matches the listing.</p>
+<p id="meta">Loading…</p>
+<div id="listings"></div>
+
+<h2>Try the 402 flow</h2>
+<ol>
+  <li>Pick a listing below and click <b>Request without payment</b> — you should get HTTP 402 with a machine-readable price.</li>
+  <li>Pay on-chain (Studio web, or CLI: <code>genlayer write &lt;contract&gt; buy_access --args 1 --value 1000000000000000000</code>), wait for finalization.</li>
+  <li>Paste the tx hash + your buyer address below and click <b>Retry with payment</b>.</li>
+</ol>
+<label>Tx hash <input id="tx" placeholder="0x… (64 hex chars) or 'demo' in demo mode"></label><br>
+<label>Buyer address <input id="buyer" placeholder="0x…"></label><br>
+<small>In demo mode (no contract configured) the gateway accepts <code>X-Payment: demo</code> and serves the local catalogue. That is a demo shortcut, not a real payment.</small>
+
+<h2>Result</h2>
+<pre id="out">Nothing yet.</pre>
+
+<script>
+const out = document.getElementById('out');
+const show = (label, status, obj) => {
+  out.textContent = label + ' — HTTP ' + status + '\n' + JSON.stringify(obj, null, 2);
+};
+async function load() {
+  const r = await fetch('/listings');
+  const j = await r.json();
+  document.getElementById('meta').innerHTML =
+    'Contract: ' + (j.contract
+      ? '<a href="' + j.explorer + '" target="_blank">' + j.contract + '</a>'
+      : '<b>not configured — DEMO mode</b>') +
+    ' · chain ' + j.chainId + (j.demoMode ? ' · demo mode' : '');
+  document.getElementById('listings').innerHTML = j.listings.map(l => {
+    const v = l.verdict;
+    const vcls = !v ? '' : v.verdict === 'MATCH' ? 'match' : v.verdict === 'MISMATCH' ? 'mismatch' : 'unreach';
+    return '<div class="card"><h3>#' + l.id + ' ' + l.title + '</h3>'
+      + '<p>' + l.description + '</p>'
+      + '<p><span class="badge">' + (l.model_name || ['paywall','metered','subscription'][l.model]) + '</span> '
+      + '<b>' + (l.price_human || (l.price_wei + ' wei')) + '</b></p>'
+      + '<p><small>Source: ' + l.data_url + '</small></p>'
+      + (v ? '<p>Last AI verdict: <span class="badge ' + vcls + '">' + v.verdict + '</span> '
+          + (v.confidence ?? '') + '% — ' + (v.reason || '') + '</p>'
+          : '<p><small>No delivery verdict yet — anyone can call verify_delivery() on-chain.</small></p>')
+      + '<button onclick="reqNoPay(' + l.id + ')">Request without payment</button> '
+      + '<button onclick="reqPaid(' + l.id + ')">Retry with payment</button></div>';
+  }).join('');
+}
+async function reqNoPay(id) {
+  const r = await fetch('/data/' + id);
+  show('GET /data/' + id + ' (no payment)', r.status, await r.json().catch(() => ({})));
+}
+async function reqPaid(id) {
+  const tx = document.getElementById('tx').value.trim();
+  const buyer = document.getElementById('buyer').value.trim();
+  const r = await fetch('/data/' + id, { headers: { 'X-Payment': tx, 'X-Buyer': buyer } });
+  const text = await r.text();
+  try { show('GET /data/' + id + ' (with payment)', r.status, JSON.parse(text)); }
+  catch { out.textContent = 'GET /data/' + id + ' (with payment) — HTTP ' + r.status + '\n' + text.slice(0, 4000); }
+}
+load();
+</script>
+</body>
+</html>

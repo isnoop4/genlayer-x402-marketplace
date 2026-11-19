@@ -16,6 +16,11 @@ stored on-chain after consensus on the verdict field. A `MISMATCH` /
 `UNREACHABLE` verdict lets a paying buyer claim a refund — no separate
 dispute court, no human moderator, no off-chain facilitator holding funds.
 
+## Live demo (GitHub Pages)
+
+- **Site:** https://isnoop4.github.io/genlayer-x402-marketplace/
+- `docs/index.html` is a standalone static version of the frontend for Pages: real listings, prices and the on-chain AI verdict from the live deployment, plus the exact HTTP 402 challenge simulated in the browser. Serving the paid data itself still needs the gateway running locally (see below), because Pages cannot run the payment-verification backend.
+
 ## Live deployment (studionet, chain 61999)
 
 - **Contract:** `0x097B786EB45d630826f9814b87894bDA8Bddf77B`

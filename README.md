@@ -27,10 +27,7 @@ dispute court, no human moderator, no off-chain facilitator holding funds.
 - **Explorer:** https://explorer-studio.genlayer.com/address/0x3B0850628992B0F322D1Af7196a9337AdF7655B4
 - **Deploy tx:** `0xe18938185a0a0473a79346f2cd3f9328732d92414ce4f1ed8f0c9d891e3c5f4d`
   (deployed with `deploy/deploy.mjs` via genlayer-js; consensus ACCEPTED)
-- **Deployer:** `0xfD7d408f5Cc0A4d507bDc41c48B4A00A8C9Fc399` —
-
-  the first deployment `0x097B786EB45d630826f9814b87894bDA8Bddf77B` from a throwaway
-  test account is superseded)
+- **Deployer:** `0xfD7d408f5Cc0A4d507bDc41c48B4A00A8C9Fc399`
 - **Seed listings** (`deploy/seed.sh`, `genlayer write create_listing`):
   - #1 BTC Price Snapshot — tx `0x90f99a436d6a0673971a1cc8b744cbdd4359653db8ed3000037ba639aa47e37f`
   - #2 Jakarta Weather Now — tx `0x7f14dad098ea07056a3218ce39d8f6a5f4b4c2bb8f1ceddb775146fd143cc490`

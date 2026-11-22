@@ -209,18 +209,6 @@ no API key anywhere. The 402 body keeps the standard shape
 (`x402Version`, `accepts[]` with `scheme: "exact"`) so x402 clients can
 parse it.
 
-## Submission notes (GenLayer Portal)
-
-- Category: Builder → Projects (Intelligent Contract + dApp).
-- Evidence to attach: this repo, `deployment.json` (contract address +
-  tx hashes), gateway demo (402 → 200), and the 9 passing direct-mode
-  tests + lint output.
-- Differentiator vs the `genlayer-x402` PyPI library: that is 4 separate
-  single-model contracts; Gen402 is **one unified marketplace** with all
-  three models plus the on-chain AI delivery verdict + verdict-gated
-  refund, which only GenLayer can do.
-- Not a dispute court: refunds are a narrow, automatic consequence of
-  a bad AI verdict — no judges, no appeals, no generic arbitration.
 
 ## Repo layout
 

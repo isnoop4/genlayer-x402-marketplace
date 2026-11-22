@@ -27,8 +27,8 @@ dispute court, no human moderator, no off-chain facilitator holding funds.
 - **Explorer:** https://explorer-studio.genlayer.com/address/0x3B0850628992B0F322D1Af7196a9337AdF7655B4
 - **Deploy tx:** `0xe18938185a0a0473a79346f2cd3f9328732d92414ce4f1ed8f0c9d891e3c5f4d`
   (deployed with `deploy/deploy.mjs` via genlayer-js; consensus ACCEPTED)
-- **Deployer:** `0xfD7d408f5Cc0A4d507bDc41c48B4A00A8C9Fc399` (Irfan's testnet wallet —
-  redeployed 2026-11-19 so the on-chain deployer matches the portal submitter;
+- **Deployer:** `0xfD7d408f5Cc0A4d507bDc41c48B4A00A8C9Fc399` —
+
   the first deployment `0x097B786EB45d630826f9814b87894bDA8Bddf77B` from a throwaway
   test account is superseded)
 - **Seed listings** (`deploy/seed.sh`, `genlayer write create_listing`):

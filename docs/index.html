@@ -40,7 +40,7 @@
 <body>
 <div class="head-row">
   <div>
-    <h1>Gen402 <small>v1</small></h1>
+    <h1>Gen402 <small>v2</small></h1>
     <p class="subtitle">x402 Data Marketplace — paid data on GenLayer, verified by validators.</p>
   </div>
   <span class="stamp">Live · Studionet</span>
@@ -49,23 +49,25 @@
 <small>Deploy tx <code>0xe18938185a0a0473a79346f2cd3f9328732d92414ce4f1ed8f0c9d891e3c5f4d</code> (consensus ACCEPTED)</small></p>
 
 <div class="note"><p class="label">Static GitHub Pages demo</p>
-The listings, prices and AI verdict below are real data from the live studionet deployment.
-The “Request without payment” button shows the exact HTTP 402 challenge the gateway returns
-(simulated here, in your browser). Serving the paid data itself needs the gateway running — see
-<a href="https://github.com/isnoop4/genlayer-x402-marketplace#readme">the repo README</a>:
-<code>CONTRACT_ADDRESS=0x3B0850628992B0F322D1Af7196a9337AdF7655B4 node gateway/server.js</code>.</div>
+The listings, prices and AI verdict below are read from the live studionet contract when the page loads
+(recorded values are shown if the network read fails — the status line says which).
+<b>Request without proof</b> shows the exact HTTP 402 challenge the gateway returns (built here, in your browser).
+Serving paid data needs the gateway running — see
+<a href="https://github.com/isnoop4/genlayer-x402-marketplace#readme">the repo README</a>.</div>
 
-<p class="label">Marketplace · 3 listings</p>
+<p class="label">Marketplace · listings</p>
+<p class="meta" id="live">Showing recorded values…</p>
+
 <div id="listings"></div>
 
-<h2>Try the 402 flow</h2>
+<h2>How a paid request is checked</h2>
 <ol>
-  <li>Pick a listing below and click <b>Request without payment</b> — you will see the HTTP 402 challenge with a machine-readable price, exactly as the gateway returns it.</li>
-  <li>Pay on-chain (Studio web, or CLI: <code>genlayer write &lt;contract&gt; buy_access --args 1 --value 1000000000000000000</code>), wait for finalization.</li>
-  <li>Paste the tx hash below and click <b>Check payment</b> — this static page cannot verify it (that needs the gateway), so it links you to the transaction on the explorer and shows the command to serve the data locally.</li>
+  <li><b>No proof</b> → HTTP 402 with a machine-readable price (click <b>Request without proof</b> on a listing).</li>
+  <li><b>Pay on-chain</b> from your own account: <code>buy_access</code> (paywall, subscription) or <code>buy_credits</code> (metered), and wait for finalization.</li>
+  <li><b>Prove you control the buyer account</b>: the gateway issues a single-use challenge that expires after two minutes and names the listing, your address, the gateway, the contract and the chain. Your wallet signs it. A transaction hash and an address are public, so they are not accepted as proof; a used or expired challenge is rejected.</li>
+  <li><b>Access and consumption on-chain</b>: the gateway reads <code>has_access</code>. For metered and subscription listings it then consumes one credit with <code>use_call</code> and waits for that transaction to be <b>finalized</b> with a successful result. Only then is the data released. No gateway key, a failed or reverted consumption: no data. Requests for the same buyer and listing run one at a time.</li>
 </ol>
-<label>Tx hash <input id="tx" placeholder="0x… (64 hex chars)"></label><br>
-<small>Live payment check needs the gateway: the gateway loads the tx with genlayer-js and requires from == buyer, to == contract, and the decoded call to be buy_access / buy_credits for that listing with the right value.</small>
+<p><small><b>How to prove it</b> on a listing shows the commands for the signed flow against a locally running gateway.</small></p>
 
 <h2>Result</h2>
 <pre id="out">Nothing yet.</pre>
@@ -81,20 +83,22 @@ The “Request without payment” button shows the exact HTTP 402 challenge the 
   </ul>
 </div>
 
-<p class="foot">Gen402 · one Intelligent Contract, three pricing models, zero middlemen. No facilitator, no API keys: you pay the contract, the gateway checks your access on-chain, then serves the data.</p>
+<p class="foot">Gen402 · one Intelligent Contract, three pricing models, zero middlemen. No facilitator, no API keys: you pay the contract, prove you control the buyer account with a signed single-use challenge, and the gateway releases data only after the chain confirms access and consumption.</p>
 
+<script src="render.js"></script>
 <script>
 const CONTRACT = "0x3B0850628992B0F322D1Af7196a9337AdF7655B4";
-const LISTINGS = [
-  { id: 1, title: "BTC Price Snapshot", description: "Live Bitcoin price in USD from the CoinGecko public API (simple price endpoint). Returns the current BTC/USD price as JSON.", data_url: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd", model: 0, model_name: "paywall", price_human: "1 GEN, one-time, permanent access", price_wei: "1000000000000000000",
+// Recorded from the live deployment; replaced by a live read when it succeeds.
+const RECORDED = [
+  { id: 1, title: "BTC Price Snapshot", description: "Live Bitcoin price in USD from the CoinGecko public API (simple price endpoint). Returns the current BTC/USD price as JSON.", data_url: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd", model: 0, price_wei: "1000000000000000000",
     verdict: { verdict: "MATCH", confidence: 99, reason: "The source contains valid JSON with a Bitcoin price in USD, matching the listing's promised BTC/USD price data." } },
-  { id: 2, title: "Jakarta Weather Now", description: "Current weather in Jakarta, Indonesia from the Open-Meteo public API: temperature, humidity, weather code and wind speed.", data_url: "https://api.open-meteo.com/v1/forecast?latitude=-6.2&longitude=106.8&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m", model: 1, model_name: "metered", price_human: "0.1 GEN per credit (1 credit = 1 call)", price_wei: "100000000000000000", verdict: null },
-  { id: 3, title: "Top Crypto Market Brief", description: "Top-2 crypto market-cap brief (Bitcoin and Ethereum) from the CoinGecko public markets API: current price, market cap and 24h change.", data_url: "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum&order=market_cap_desc&per_page=2&page=1", model: 2, model_name: "subscription", price_human: "2 GEN per bundle of 30 calls", price_wei: "2000000000000000000", verdict: null }
+  { id: 2, title: "Jakarta Weather Now", description: "Current weather in Jakarta, Indonesia from the Open-Meteo public API: temperature, humidity, weather code and wind speed.", data_url: "https://api.open-meteo.com/v1/forecast?latitude=-6.2&longitude=106.8&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m", model: 1, price_wei: "100000000000000000", verdict: null },
+  { id: 3, title: "Top Crypto Market Brief", description: "Top-2 crypto market-cap brief (Bitcoin and Ethereum) from the CoinGecko public markets API: current price, market cap and 24h change.", data_url: "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum&order=market_cap_desc&per_page=2&page=1", model: 2, price_wei: "2000000000000000000", verdict: null }
 ];
+let LISTINGS = RECORDED;
+const R = window.Gen402Render;
 const out = document.getElementById('out');
-const show = (label, status, obj) => {
-  out.textContent = label + ' — HTTP ' + status + '\n' + JSON.stringify(obj, null, 2);
-};
+const MODEL = ["paywall", "metered", "subscription"];
 function x402Body(l) {
   return {
     x402Version: 1,
@@ -103,50 +107,64 @@ function x402Body(l) {
       scheme: "exact",
       network: "eip155:61999",
       asset: "GEN",
-      amount: l.price_wei,
+      amount: String(l.price_wei),
       payTo: CONTRACT,
-      description: l.title + " — " + l.price_human,
+      description: String(l.title) + " — " + R.priceText(l),
       mimeType: "application/json",
       maxTimeoutSeconds: 300,
       extra: {
         contract: CONTRACT,
         listingId: l.id,
-        model: l.model_name,
-        howToPay: "Call buy_access(listingId) for paywall/subscription or buy_credits(listingId, credits) for metered, with value = price, then retry with X-Payment: <txHash> and X-Buyer: <your address>."
+        model: MODEL[l.model] || "unknown",
+        howToPay: "Call buy_access(listingId) for paywall/subscription or buy_credits(listingId, credits) for metered, with value = price, and wait for finalization.",
+        howToProve: "GET /challenge/<listingId>?buyer=<your address>, sign the returned message with that account (personal_sign), then retry GET /data/<listingId> with X-Buyer, X-Nonce and X-Signature. Each challenge works once and expires. A transaction hash is not accepted as proof."
       }
     }]
   };
 }
-document.getElementById('listings').innerHTML = LISTINGS.map(l => {
-  const v = l.verdict;
-  const vcls = !v ? '' : v.verdict === 'MATCH' ? '' : v.verdict === 'MISMATCH' ? 'mismatch' : 'unreach';
-  return '<div class="card"><div class="head-row"><h3>#' + l.id + ' ' + l.title + '</h3>'
-    + (v ? '<span class="stamp ' + vcls + '">' + v.verdict + ' · ' + v.confidence + '%</span>' : '') + '</div>'
-    + '<p>' + l.description + '</p>'
-    + '<p><span class="badge">' + l.model_name + '</span> <b>' + l.price_human + '</b></p>'
-    + '<p><small>Source: ' + l.data_url + '</small></p>'
-    + (v ? '<p><small>Last AI verdict: ' + v.reason + '</small></p>'
-        : '<p><small>No delivery verdict yet — anyone can call verify_delivery() on-chain.</small></p>')
-    + '<button onclick="reqNoPay(' + l.id + ')">Request without payment</button> '
-    + '<button onclick="checkPaid(' + l.id + ')">Check payment</button></div>';
-}).join('');
-function reqNoPay(id) {
-  const l = LISTINGS.find(x => x.id === id);
-  show('GET /data/' + id + ' (no payment) — simulated 402, exactly as the gateway returns it', 402, x402Body(l));
+function reqNoProof(id) {
+  const l = LISTINGS.find(x => Number(x.id) === id);
+  out.textContent = 'GET /data/' + id + ' (no proof) — HTTP 402, as the gateway returns it\n' + JSON.stringify(x402Body(l), null, 2);
 }
-function checkPaid(id) {
-  const tx = document.getElementById('tx').value.trim();
-  const l = LISTINGS.find(x => x.id === id);
-  if (!/^0x[0-9a-fA-F]{64}$/.test(tx)) {
-    out.textContent = 'Paste a real tx hash first (0x + 64 hex chars) — e.g. the buy_access tx from the README.';
-    return;
+function howToProve(id) {
+  out.textContent = 'This static page cannot serve paid data — that needs the gateway.\n\n'
+    + '1. Run the gateway (GATEWAY_PRIVATE_KEY = the account registered with set_gateway):\n'
+    + '   CONTRACT_ADDRESS=' + CONTRACT + ' GATEWAY_PRIVATE_KEY=0x… node gateway/server.js\n\n'
+    + '2. Signed request for listing #' + id + ' from the buyer account:\n'
+    + '   BUYER_PRIVATE_KEY=0x… node gateway/client.mjs http://localhost:8787 ' + id + '\n\n'
+    + 'The client asks for a challenge, signs it, and sends X-Buyer, X-Nonce and X-Signature.\n'
+    + 'Sending only a tx hash and an address returns 402.';
+}
+function draw() {
+  R.renderListings(document, document.getElementById('listings'), LISTINGS, [
+    { label: 'Request without proof', onClick: reqNoProof },
+    { label: 'How to prove it', onClick: howToProve },
+  ]);
+}
+draw();
+window.__gen402 = { CONTRACT, setListings(list) { LISTINGS = list; draw(); } };
+</script>
+<script type="module">
+// Read-only live read from studionet (throwaway in-memory account, no wallet).
+const live = document.getElementById('live');
+try {
+  const { createClient, createAccount, generatePrivateKey } = await import("https://esm.sh/genlayer-js@2.2.0");
+  const { studionet } = await import("https://esm.sh/genlayer-js@2.2.0/chains");
+  const client = createClient({ chain: studionet, account: createAccount(generatePrivateKey()) });
+  const address = window.__gen402.CONTRACT;
+  const read = (functionName, args = []) => client.readContract({ address, functionName, args });
+  const listings = JSON.parse(await read("list_listings"));
+  if (!Array.isArray(listings) || listings.length === 0) throw new Error("no listings returned");
+  for (const l of listings) {
+    try {
+      const v = await read("get_verdict", [l.id]);
+      l.verdict = v ? JSON.parse(v) : null;
+    } catch { l.verdict = null; }
   }
-  out.textContent = 'This static page cannot verify a payment — that check runs in the gateway.\n\n'
-    + 'Your tx: https://explorer-studio.genlayer.com/tx/' + tx + '\n'
-    + 'Listing: #' + id + ' ' + l.title + ' (' + l.price_human + ')\n\n'
-    + 'To serve the data, run the gateway locally:\n'
-    + '  CONTRACT_ADDRESS=' + CONTRACT + ' node gateway/server.js\n'
-    + 'then: curl -H "X-Payment: ' + tx + '" -H "X-Buyer: <your address>" http://localhost:8787/data/' + id;
+  window.__gen402.setListings(listings);
+  live.textContent = "Live from studionet · " + listings.length + " listings · read " + new Date().toISOString().slice(0, 16).replace("T", " ") + " UTC";
+} catch (e) {
+  live.textContent = "Live read failed (" + String(e && e.message ? e.message : e).slice(0, 120) + ") — showing recorded values.";
 }
 </script>
 </body>

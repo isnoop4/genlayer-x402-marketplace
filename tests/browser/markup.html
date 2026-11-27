@@ -1,0 +1,41 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Gen402 injected-markup check (real browser)</title>
+<!-- Renders hostile listing / verdict text through docs/render.js in a real
+     browser engine and reports whether anything executed or became an element.
+     Run: tests/browser/run.sh  (headless Chromium, no network needed). -->
+<div id="listings"></div>
+<pre id="result">not run</pre>
+<script src="../../docs/render.js"></script>
+<script>
+window.__pwned = 0;
+var payloads = [
+  '<script>window.__pwned=1<\/script>',
+  '<img src=x onerror="window.__pwned=1">',
+  '"><svg onload="window.__pwned=1">',
+  '</small></p><iframe srcdoc="<script>parent.__pwned=1<\/script>">',
+  '<a href="javascript:window.__pwned=1" id=evil>click</a>',
+  '<details open ontoggle="window.__pwned=1">'
+];
+var listings = payloads.map(function (p, i) {
+  return { id: i + 1, title: 'T ' + p, description: 'D ' + p, data_url: 'javascript:window.__pwned=1//' + p,
+    model: i % 3, price_wei: '100000000000000000', price_human: 'P ' + p,
+    verdict: { verdict: 'MISMATCH' + p, confidence: '1"><img src=x onerror=window.__pwned=1>', reason: 'R ' + p } };
+});
+var box = document.getElementById('listings');
+window.Gen402Render.renderListings(document, box, listings, [{ label: 'Go', onClick: function () {} }]);
+setTimeout(function () {
+  var forbidden = box.querySelectorAll('script,img,svg,iframe,details,object,embed,link,style,form,input').length;
+  var handlers = 0, badHref = 0, verbatim = 0;
+  box.querySelectorAll('*').forEach(function (n) {
+    for (var i = 0; i < n.attributes.length; i++) if (/^on/i.test(n.attributes[i].name)) handlers++;
+    if (n.hasAttribute('href') && !/^https?:/i.test(n.getAttribute('href'))) badHref++;
+  });
+  payloads.forEach(function (p) { if (box.textContent.indexOf('T ' + p) !== -1 && box.textContent.indexOf('R ' + p) !== -1) verbatim++; });
+  var ok = window.__pwned === 0 && forbidden === 0 && handlers === 0 && badHref === 0 && verbatim === payloads.length
+    && box.querySelectorAll('.card').length === payloads.length && !document.getElementById('evil');
+  document.getElementById('result').textContent = (ok ? 'PASS' : 'FAIL') + ' executed=' + window.__pwned
+    + ' forbiddenElements=' + forbidden + ' inlineHandlers=' + handlers + ' badLinks=' + badHref
+    + ' payloadsShownAsText=' + verbatim + '/' + payloads.length + ' cards=' + box.querySelectorAll('.card').length;
+}, 300);
+</script>

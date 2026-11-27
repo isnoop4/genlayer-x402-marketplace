@@ -20,3 +20,7 @@ deployment.local.json
 *.pyc
 __pycache__/
 .pytest_cache/
+# Dependency folders (node_modules may be a symlink to a shared install)
+node_modules
+.node_modules-*/
+*.local.json

@@ -1,22 +1,38 @@
 // Gen402 x402 gateway — plain Node.js (no framework).
-// Serves the frontend, the listing catalogue, and the x402 flow:
-//   GET /data/:id  without payment  -> HTTP 402 + machine-readable price
-//   GET /data/:id  with X-Payment: <txHash> + X-Buyer: <address>
-//     -> verifies on-chain access, serves the upstream data, records the
-//        call on-chain with use_call() when a gateway key is configured.
+//
+//   GET  /data/:id                      no proof            -> HTTP 402 + price
+//   GET  /challenge/:id?buyer=0x...     single-use challenge to sign
+//   GET  /data/:id  + X-Buyer, X-Nonce, X-Signature
+//        -> signature must come from the buyer account (EIP-191), the
+//           challenge must be unused and unexpired, the buyer must hold
+//           access on-chain, and for metered / subscription listings one
+//           credit must be consumed on-chain and FINALIZED before any data
+//           is released. See gateway/core.js for the exact rules.
+//
+// A transaction hash plus an address is NOT accepted as proof: both are
+// public on the explorer.
 //
 // Env:
-//   PORT              default 8787
-//   CONTRACT_ADDRESS  Gen402 contract on studionet (0x...). If unset, the
-//                     gateway runs in labelled DEMO mode against
-//                     data/listings.json and accepts X-Payment: demo.
-//   RPC_URL           default https://studio.genlayer.com/api
-//   GATEWAY_PRIVATE_KEY  optional throwaway studionet key, used only to
-//                     call use_call() / verify_delivery(). Never commit it.
+//   PORT                 default 8787
+//   CONTRACT_ADDRESS     Gen402 contract on studionet (0x...). If unset, the
+//                        gateway runs in labelled DEMO mode against
+//                        data/listings.json (signature still required,
+//                        nothing on-chain is checked).
+//   RPC_URL              default https://studio.genlayer.com/api
+//   GATEWAY_PRIVATE_KEY  throwaway studionet key of the account registered
+//                        with set_gateway(). Required for metered and
+//                        subscription listings: without it those requests are
+//                        refused. Needs a little GEN for protocol fees.
+//                        Read from the environment only. Never commit it.
+//   GATEWAY_ID           public origin of this gateway, written into every
+//                        challenge (default http://localhost:<PORT>).
+//   CHALLENGE_TTL_MS     default 120000
 import http from "node:http";
+import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createGateway } from "./core.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -24,276 +40,184 @@ const PORT = Number(process.env.PORT || 8787);
 const RPC_URL = process.env.RPC_URL || "https://studio.genlayer.com/api";
 const CONTRACT_ADDRESS = (process.env.CONTRACT_ADDRESS || "").trim() || null;
 const GATEWAY_PRIVATE_KEY = (process.env.GATEWAY_PRIVATE_KEY || "").trim() || null;
+const GATEWAY_ID = (process.env.GATEWAY_ID || "").trim() || `http://localhost:${PORT}`;
+const TTL_MS = Number(process.env.CHALLENGE_TTL_MS || 120000);
 const CHAIN_ID = 61999; // GenLayer studionet
 const EXPLORER = "https://explorer-studio.genlayer.com/address";
+const DEMO = !CONTRACT_ADDRESS;
 
-const mirror = JSON.parse(
-  await readFile(path.join(ROOT, "data", "listings.json"), "utf-8")
-);
+const mirror = JSON.parse(await readFile(path.join(ROOT, "data", "listings.json"), "utf-8"));
 
-let sdk = null; // lazy-loaded genlayer-js (ESM-only)
-let client = null;
-let gatewayAccount = null;
-
-async function getClient() {
-  if (client) return client;
-  sdk = await import("genlayer-js");
-  const { studionet } = await import("genlayer-js/chains");
-  const config = { chain: studionet, endpoint: RPC_URL };
-  if (GATEWAY_PRIVATE_KEY) {
-    gatewayAccount = sdk.createAccount(
-      GATEWAY_PRIVATE_KEY.startsWith("0x")
-        ? GATEWAY_PRIVATE_KEY
-        : `0x${GATEWAY_PRIVATE_KEY}`
-    );
-    config.account = gatewayAccount;
+let chainPromise = null; // lazy: genlayer-js is slow to load
+function getChain() {
+  if (!chainPromise) {
+    chainPromise = import("./chain.js").then((m) => m.createStudionetChain({
+      rpcUrl: RPC_URL,
+      contractAddress: CONTRACT_ADDRESS,
+      gatewayPrivateKey: GATEWAY_PRIVATE_KEY,
+      log: (line) => console.log(line),
+    }));
   }
-  client = sdk.createClient(config);
-  return client;
+  return chainPromise;
 }
 
-async function contractRead(functionName, args = []) {
-  const c = await getClient();
-  return c.readContract({ address: CONTRACT_ADDRESS, functionName, args });
+let recoverMessageAddress = null;
+async function recoverSigner({ message, signature }) {
+  if (!recoverMessageAddress) ({ recoverMessageAddress } = await import("viem"));
+  return recoverMessageAddress({ message, signature });
 }
 
-async function contractWrite(functionName, args = [], value = 0n) {
-  const c = await getClient();
-  if (!gatewayAccount) throw new Error("GATEWAY_PRIVATE_KEY not configured");
-  const hash = await c.writeContract({
-    address: CONTRACT_ADDRESS,
-    functionName,
-    args,
-    value,
-  });
-  return hash;
-}
+const gateway = createGateway({
+  contractAddress: CONTRACT_ADDRESS,
+  chainId: CHAIN_ID,
+  gatewayId: GATEWAY_ID,
+  demoMode: DEMO,
+  ttlMs: TTL_MS,
+  randomNonce: () => "0x" + randomBytes(32).toString("hex"),
+  recoverSigner,
+  chain: {
+    hasAccess: async (buyer, id) => (await getChain()).hasAccess(buyer, id),
+    canConsume: () => Boolean(GATEWAY_PRIVATE_KEY),
+    consumeCall: async (id, buyer) => (await getChain()).consumeCall(id, buyer),
+  },
+  fetchUpstream: async (url) => {
+    const r = await fetch(url, {
+      headers: { "User-Agent": "Gen402-gateway/2.0", Accept: "application/json" },
+      redirect: "error",
+      signal: AbortSignal.timeout(20000),
+    });
+    return { ok: r.ok, status: r.status, body: await r.text() };
+  },
+});
+
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "X-Buyer, X-Nonce, X-Signature, X-Payment, Content-Type",
+  "Access-Control-Expose-Headers":
+    "X-Gen402-Reason, X-Gen402-Metered, X-Gen402-Consumption, X-Gen402-Calls-Left, X-Gen402-Buyer, PAYMENT-REQUIRED",
+};
 
 function send(res, status, obj, extraHeaders = {}) {
-  const body = JSON.stringify(obj, null, 2);
-  res.writeHead(status, {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    ...extraHeaders,
-  });
-  res.end(body);
+  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "X-Content-Type-Options": "nosniff", ...CORS, ...extraHeaders });
+  res.end(JSON.stringify(obj, null, 2));
 }
 
-function x402Body(listing) {
-  const amount = listing.price_wei; // wei, as a decimal string
-  return {
-    x402Version: 1,
-    error: "Payment Required",
-    accepts: [
-      {
-        scheme: "exact",
-        network: `eip155:${CHAIN_ID}`,
-        asset: "GEN",
-        amount,
-        payTo: CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000000",
-        description: `${listing.title} — ${listing.price_human}`,
-        mimeType: "application/json",
-        maxTimeoutSeconds: 300,
-        extra: {
-          contract: CONTRACT_ADDRESS,
-          listingId: listing.id,
-          model: listing.model_name,
-          howToPay:
-            "Call buy_access(listingId) for paywall/subscription or buy_credits(listingId, credits) for metered, with value = price, then retry with X-Payment: <txHash> and X-Buyer: <your address>.",
-        },
-      },
-    ],
-  };
-}
-
-async function getListings() {
-  if (!CONTRACT_ADDRESS) return mirror;
-  try {
-    const raw = await contractRead("list_listings", []);
-    const onchain = JSON.parse(raw);
-    // Enrich with verdicts (best-effort).
-    for (const l of onchain) {
-      try {
-        const v = await contractRead("get_verdict", [l.id]);
-        if (v) l.verdict = JSON.parse(v);
-      } catch { /* verdict not set yet */ }
-    }
-    return onchain.length ? onchain : mirror;
-  } catch (e) {
-    console.error("contract list_listings failed, using mirror:", e.message);
-    return mirror;
-  }
-}
-
-async function verifyPayment(listing, req) {
-  const txHash = req.headers["x-payment"];
-  const buyer = req.headers["x-buyer"];
-  if (!txHash || !buyer) return { ok: false, reason: "missing X-Payment / X-Buyer headers" };
-  if (!CONTRACT_ADDRESS) {
-    // Labelled demo mode only — no contract configured, nothing on-chain to check.
-    if (txHash === "demo") return { ok: true, demo: true, buyer };
-    return { ok: false, reason: "demo mode: use X-Payment: demo (no contract configured)" };
-  }
-  if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) {
-    return { ok: false, reason: "X-Payment must be a 0x transaction hash" };
-  }
-  // Authoritative check: does the buyer actually hold access on-chain?
-  let hasAccess = false;
-  try {
-    hasAccess = await contractRead("has_access", [buyer, listing.id]);
-  } catch (e) {
-    return { ok: false, reason: `contract read failed: ${e.message}` };
-  }
-  if (!hasAccess) {
-    return { ok: false, reason: "no on-chain access for this buyer (pay first, wait for finalization)" };
-  }
-  // Bind the presented tx hash to the exact purchase: load the GenLayer
-  // transaction and require from == buyer, to == this contract, and the
-  // decoded call to be buy_access/buy_credits for THIS listing with the
-  // right value. (A bare receipt check cannot tell a deploy or a
-  // create_listing tx from a purchase — the readable calldata can.)
-  let receiptNote;
-  try {
-    const c = await getClient();
-    const tx = await c.getTransaction({ hash: txHash });
-    if (!tx) return { ok: false, reason: "no such transaction on studionet" };
-    const from = String(tx.from_address || tx.from || "").toLowerCase();
-    const to = String(tx.to_address || tx.to || "").toLowerCase();
-    if (from !== String(buyer).toLowerCase()) {
-      return { ok: false, reason: `tx is from ${tx.from_address}, not the presented buyer ${buyer}` };
-    }
-    if (to !== CONTRACT_ADDRESS.toLowerCase()) {
-      return { ok: false, reason: `tx target ${tx.to_address} is not the marketplace contract` };
-    }
-    // The decoded call lives at tx.data.calldata.readable, but it is a
-    // Python-style repr, not strict JSON (e.g. {"args":[1,]"method":
-    // "buy_access"} — trailing comma, missing comma). Parse it tolerantly.
-    let method = null;
-    let args = null;
+// Listings are read from the contract and cached: Studio's public RPC allows
+// about 30 requests a minute, and a paid request must spend them on the
+// access check and the consumption, not on re-reading the catalogue.
+// With a contract configured there is NO fallback to the local mirror: if the
+// catalogue cannot be read and nothing is cached, the request fails.
+const LISTINGS_TTL_MS = Number(process.env.LISTINGS_TTL_MS || 300000);
+let cache = null; // { at, listings }
+async function getListings({ withVerdicts = false } = {}) {
+  if (DEMO) return mirror;
+  const fresh = cache && Date.now() - cache.at < LISTINGS_TTL_MS;
+  if (!fresh || (withVerdicts && !cache.verdicts)) {
     try {
-      const readable = tx.data?.calldata?.readable || tx.data?.readable || tx.readable || "";
-      const mMethod = String(readable).match(/"method"\s*:\s*"([^"]+)"/);
-      const mArgs = String(readable).match(/"args"\s*:\s*\[([^\]]*)\]/);
-      if (mMethod) method = mMethod[1];
-      if (mArgs) {
-        args = mArgs[1].split(",").map((t) => t.trim()).filter((t) => t !== "")
-          .map((t) => {
-            const q = t.match(/^"(.*)"$/);
-            if (q) return q[1];
-            const n = Number(t);
-            return Number.isNaN(n) ? t : n;
-          });
+      const chain = await getChain();
+      const listings = JSON.parse(await chain.read("list_listings", []));
+      let verdicts = false;
+      if (withVerdicts) {
+        for (const l of listings) {
+          try {
+            const v = await chain.read("get_verdict", [l.id]);
+            if (v) l.verdict = JSON.parse(v);
+          } catch { /* verdict not set yet */ }
+        }
+        verdicts = true;
       }
-    } catch { /* not decodable */ }
-    if (method !== "buy_access" && method !== "buy_credits") {
-      return { ok: false, reason: `tx called ${method || "an undecodable method"}, not a purchase` };
+      cache = { at: Date.now(), listings, verdicts };
+    } catch (e) {
+      console.error("contract list_listings failed:", String(e.message).split("\n")[0]);
+      if (!cache) throw new Error("catalogue unavailable");
     }
-    if (!args || Number(args[0]) !== listing.id) {
-      return { ok: false, reason: `tx bought listing ${args ? args[0] : "?"}, not ${listing.id}` };
-    }
-    const paid = BigInt(tx.value ?? 0);
-    const expected = method === "buy_access"
-      ? BigInt(listing.price_wei)
-      : BigInt(args[1]) * BigInt(listing.price_wei);
-    if (paid !== expected) {
-      return { ok: false, reason: `tx paid ${paid} wei, expected ${expected} wei` };
-    }
-    receiptNote = `verified purchase tx: ${method}(${args.join(", ")}) value ${paid} wei`;
-  } catch (e) {
-    return { ok: false, reason: `cannot verify tx ${txHash}: ${e.message}` };
   }
-  return { ok: true, buyer, txHash, receiptNote };
+  return cache.listings;
 }
+
+const STATIC = {
+  "/": ["frontend/index.html", "text/html; charset=utf-8"],
+  "/index.html": ["frontend/index.html", "text/html; charset=utf-8"],
+  "/render.js": ["docs/render.js", "text/javascript; charset=utf-8"],
+  "/app.js": ["frontend/app.js", "text/javascript; charset=utf-8"],
+};
 
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://localhost:${PORT}`);
     const [, route, param] = url.pathname.split("/");
 
-    if (url.pathname === "/" || url.pathname === "/index.html") {
-      const html = await readFile(path.join(ROOT, "frontend", "index.html"), "utf-8");
-      res.writeHead(200, { "Content-Type": "text/html" });
-      return res.end(html);
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, CORS);
+      return res.end();
+    }
+
+    if (STATIC[url.pathname]) {
+      const [file, type] = STATIC[url.pathname];
+      res.writeHead(200, {
+        "Content-Type": type,
+        "X-Content-Type-Options": "nosniff",
+        // The page builds its DOM with textContent only; this is a second line of defence.
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'unsafe-inline'; img-src 'none'; object-src 'none'; base-uri 'none'",
+      });
+      return res.end(await readFile(path.join(ROOT, file)));
     }
 
     if (url.pathname === "/listings") {
-      const listings = await getListings();
       return send(res, 200, {
         contract: CONTRACT_ADDRESS,
         explorer: CONTRACT_ADDRESS ? `${EXPLORER}/${CONTRACT_ADDRESS}` : null,
         chainId: CHAIN_ID,
-        demoMode: !CONTRACT_ADDRESS,
-        listings,
+        demoMode: DEMO,
+        gateway: GATEWAY_ID,
+        meteredEnabled: Boolean(GATEWAY_PRIVATE_KEY),
+        listings: await getListings({ withVerdicts: true }),
       });
     }
 
-    if (route === "data" && param) {
+    if ((route === "data" || route === "challenge") && param) {
       const id = Number(param);
-      const listings = await getListings();
-      const listing = listings.find((l) => l.id === id);
-      if (!listing) return send(res, 404, { error: `listing ${id} not found` });
+      const listing = Number.isInteger(id) ? (await getListings()).find((l) => l.id === id) : null;
+      if (!listing) return send(res, 404, { error: "listing not found" });
 
-      const check = await verifyPayment(listing, req);
-      if (!check.ok) {
-        return send(res, 402, x402Body(listing), {
-          "PAYMENT-REQUIRED": "x402",
-          "X-Gen402-Reason": check.reason,
-        });
+      if (route === "challenge") {
+        const out = gateway.issueChallenge({ listing, buyer: url.searchParams.get("buyer") });
+        return send(res, out.status, out.body, out.headers);
       }
 
-      // Paid: fetch the upstream data server-side and serve it.
-      const upstream = await fetch(listing.data_url, {
-        headers: { "User-Agent": "Gen402-gateway/1.0", Accept: "application/json" },
-      });
-      if (!upstream.ok) {
-        return send(res, 502, { error: `upstream ${listing.data_url} returned ${upstream.status}` });
+      const out = await gateway.handleData({ listing, headers: req.headers });
+      if (out.raw !== undefined) {
+        res.writeHead(out.status, { "Content-Type": "application/json; charset=utf-8", "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store", ...CORS, ...out.headers });
+        return res.end(out.raw);
       }
-      const data = await upstream.text();
-
-      // Record the call on-chain (metered / subscription only; paywall is
-      // unlimited so use_call is a no-op). Best-effort, never blocks the 200.
-      let metered = "skipped-no-gateway-key";
-      if (GATEWAY_PRIVATE_KEY && CONTRACT_ADDRESS && listing.model !== 0) {
-        try {
-          const hash = await contractWrite("use_call", [id, check.buyer]);
-          metered = `recorded on-chain: ${hash}`;
-        } catch (e) {
-          metered = `use_call failed: ${e.message}`;
-        }
-      } else if (listing.model === 0) {
-        metered = "paywall: unlimited, nothing to deduct";
-      }
-      res.writeHead(200, {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "X-Payment-Response": JSON.stringify({ txHash: check.txHash || "demo", buyer: check.buyer }),
-        "X-Gen402-Metered": metered,
-        "X-Gen402-Receipt": check.receiptNote || "demo mode",
-      });
-      return res.end(data);
+      return send(res, out.status, out.body, out.headers);
     }
 
     if (route === "verify" && param && req.method === "POST") {
-      if (!CONTRACT_ADDRESS || !GATEWAY_PRIVATE_KEY) {
+      if (DEMO || !GATEWAY_PRIVATE_KEY) {
         return send(res, 400, { error: "verify needs CONTRACT_ADDRESS + GATEWAY_PRIVATE_KEY" });
       }
-      const hash = await contractWrite("verify_delivery", [Number(param)]);
+      const hash = await (await getChain()).verifyDelivery(Number(param));
       return send(res, 200, { tx: hash, note: "verify_delivery submitted; wait for consensus, then GET /listings for the verdict" });
     }
 
     if (url.pathname === "/health") {
-      return send(res, 200, { ok: true, contract: CONTRACT_ADDRESS, demoMode: !CONTRACT_ADDRESS });
+      return send(res, 200, { ok: true, contract: CONTRACT_ADDRESS, demoMode: DEMO, meteredEnabled: Boolean(GATEWAY_PRIVATE_KEY) });
     }
 
-    return send(res, 404, { error: "not found", routes: ["GET /", "GET /listings", "GET /data/:id", "POST /verify/:id", "GET /health"] });
+    return send(res, 404, { error: "not found", routes: ["GET /", "GET /listings", "GET /challenge/:id?buyer=0x...", "GET /data/:id", "POST /verify/:id", "GET /health"] });
   } catch (e) {
-    console.error(e);
-    return send(res, 500, { error: String(e && e.message ? e.message : e) });
+    console.error(String(e && e.message ? e.message : e).split("\n")[0]);
+    if (res.headersSent) return res.end();
+    const unavailable = e && e.message === "catalogue unavailable";
+    return send(res, unavailable ? 503 : 500, { error: unavailable ? "catalogue unavailable: the contract could not be read" : "internal error" });
   }
 });
 
 server.listen(PORT, () => {
-  console.log(`Gen402 gateway on http://localhost:${PORT}`);
-  console.log(`Contract: ${CONTRACT_ADDRESS || "(none — DEMO mode, X-Payment: demo)"}`);
+  console.log(`Gen402 gateway on http://localhost:${PORT} (id ${GATEWAY_ID})`);
+  console.log(`Contract: ${CONTRACT_ADDRESS || "(none — DEMO mode, nothing on-chain is checked)"}`);
   console.log(`RPC: ${RPC_URL}  chain: ${CHAIN_ID}`);
+  console.log(`Metered/subscription: ${GATEWAY_PRIVATE_KEY ? "enabled (gateway key present)" : "REFUSED (no GATEWAY_PRIVATE_KEY)"}`);
 });
+

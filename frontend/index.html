@@ -37,7 +37,7 @@
 <body>
 <div class="head-row">
   <div>
-    <h1>Gen402 <small>v1</small></h1>
+    <h1>Gen402 <small>v2</small></h1>
     <p class="subtitle">x402 Data Marketplace — paid data on GenLayer, verified by validators.</p>
   </div>
   <span class="stamp">Live · Studionet</span>
@@ -49,13 +49,14 @@
 
 <h2>Try the 402 flow</h2>
 <ol>
-  <li>Pick a listing below and click <b>Request without payment</b> — you should get HTTP 402 with a machine-readable price.</li>
-  <li>Pay on-chain (Studio web, or CLI: <code>genlayer write &lt;contract&gt; buy_access --args 1 --value 1000000000000000000</code>), wait for finalization.</li>
-  <li>Paste the tx hash + your buyer address below and click <b>Retry with payment</b>.</li>
+  <li>Pick a listing and click <b>Request without proof</b> — you get HTTP 402 with a machine-readable price.</li>
+  <li>Pay on-chain from your own account (<code>buy_access</code> or <code>buy_credits</code>) and wait for finalization.</li>
+  <li>Click <b>Request with wallet proof</b>. The gateway issues a single-use challenge, your wallet signs it, and the gateway checks the signature, your on-chain access, and — for metered and subscription listings — waits for one credit to be consumed on-chain and finalized before it releases the data (this takes a while).</li>
 </ol>
-<label>Tx hash <input id="tx" placeholder="0x… (64 hex chars) or 'demo' in demo mode"></label><br>
+<p><small>No browser wallet? The same flow runs from a terminal: <code>BUYER_PRIVATE_KEY=0x… node gateway/client.mjs http://localhost:8787 2</code>.</small></p>
+<label>Tx hash only (old flow) <input id="tx" placeholder="0x… (64 hex chars)"></label><br>
 <label>Buyer address <input id="buyer" placeholder="0x…"></label><br>
-<small>In demo mode (no contract configured) the gateway accepts <code>X-Payment: demo</code> and serves the local catalogue. That is a demo shortcut, not a real payment.</small>
+<small>A transaction hash and an address are public on the explorer, so they are no longer accepted as proof. <b>Send tx hash only</b> shows the refusal.</small>
 
 <h2>Result</h2>
 <pre id="out">Nothing yet.</pre>
@@ -71,49 +72,9 @@
   </ul>
 </div>
 
-<p class="foot">Gen402 · one Intelligent Contract, three pricing models, zero middlemen. No facilitator, no API keys: you pay the contract, the gateway checks your access on-chain, then serves the data.</p>
+<p class="foot">Gen402 · one Intelligent Contract, three pricing models, zero middlemen. No facilitator, no API keys: you pay the contract, prove you control the buyer account with a signed single-use challenge, and the gateway releases data only after the chain confirms access and consumption.</p>
 
-<script>
-const out = document.getElementById('out');
-const show = (label, status, obj) => {
-  out.textContent = label + ' — HTTP ' + status + '\n' + JSON.stringify(obj, null, 2);
-};
-async function load() {
-  const r = await fetch('/listings');
-  const j = await r.json();
-  document.getElementById('meta').innerHTML =
-    'Contract: ' + (j.contract
-      ? '<a href="' + j.explorer + '" target="_blank">' + j.contract + '</a>'
-      : '<b>not configured — DEMO mode</b>') +
-    ' · chain ' + j.chainId + (j.demoMode ? ' · demo mode' : '');
-  document.getElementById('listings').innerHTML = j.listings.map(l => {
-    const v = l.verdict;
-    const vcls = !v ? '' : v.verdict === 'MATCH' ? '' : v.verdict === 'MISMATCH' ? 'mismatch' : 'unreach';
-    return '<div class="card"><div class="head-row"><h3>#' + l.id + ' ' + l.title + '</h3>'
-      + (v ? '<span class="stamp ' + vcls + '">' + v.verdict + ' · ' + (v.confidence ?? '') + '%</span>' : '') + '</div>'
-      + '<p>' + l.description + '</p>'
-      + '<p><span class="badge">' + (l.model_name || ['paywall','metered','subscription'][l.model]) + '</span> '
-      + '<b>' + (l.price_human || (l.price_wei + ' wei')) + '</b></p>'
-      + '<p><small>Source: ' + l.data_url + '</small></p>'
-      + (v ? '<p><small>Last AI verdict: ' + (v.reason || '') + '</small></p>'
-          : '<p><small>No delivery verdict yet — anyone can call verify_delivery() on-chain.</small></p>')
-      + '<button onclick="reqNoPay(' + l.id + ')">Request without payment</button> '
-      + '<button onclick="reqPaid(' + l.id + ')">Retry with payment</button></div>';
-  }).join('');
-}
-async function reqNoPay(id) {
-  const r = await fetch('/data/' + id);
-  show('GET /data/' + id + ' (no payment)', r.status, await r.json().catch(() => ({})));
-}
-async function reqPaid(id) {
-  const tx = document.getElementById('tx').value.trim();
-  const buyer = document.getElementById('buyer').value.trim();
-  const r = await fetch('/data/' + id, { headers: { 'X-Payment': tx, 'X-Buyer': buyer } });
-  const text = await r.text();
-  try { show('GET /data/' + id + ' (with payment)', r.status, JSON.parse(text)); }
-  catch { out.textContent = 'GET /data/' + id + ' (with payment) — HTTP ' + r.status + '\n' + text.slice(0, 4000); }
-}
-load();
-</script>
+<script src="/render.js"></script>
+<script src="/app.js"></script>
 </body>
 </html>

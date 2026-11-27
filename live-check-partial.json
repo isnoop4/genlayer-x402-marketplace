@@ -1,0 +1,171 @@
+{
+  "network": "studionet",
+  "chainId": 61999,
+  "contract": "0x3B0850628992B0F322D1Af7196a9337AdF7655B4",
+  "explorer": "https://explorer-studio.genlayer.com/address/0x3B0850628992B0F322D1Af7196a9337AdF7655B4",
+  "mode": "partial live run: gateway account NOT registered with set_gateway (no owner transaction was sent)",
+  "startedAt": "2026-11-27T16:05:50.386Z",
+  "accounts": {
+    "gateway": "0x95e9b7d4F68Dd174957F2447E136e3eF6bbf2e43",
+    "buyer": "0xD584286A22Bf42d3781F5B75FeE5aa5687Ae95Ee",
+    "attacker": "0x6bF52ABE6061380FCa148d3Ef37D7292e790F9d4"
+  },
+  "transactions": {
+    "buy_credits(2, 2) (buyer)": {
+      "tx": "0xea85b521f12ce02eee8b841c093f91e974755728194179344f177ccd40ae5da4",
+      "status": "FINALIZED",
+      "consensus": "MAJORITY_AGREE",
+      "execution": "FINISHED_WITH_RETURN"
+    },
+    "buy_access(1) (buyer)": {
+      "tx": "0x9876c3cac457b36487ec5755ca915202915e66092d8aadded8c821aefbd9c48e",
+      "status": "FINALIZED",
+      "consensus": "MAJORITY_AGREE",
+      "execution": "FINISHED_WITH_RETURN"
+    }
+  },
+  "checks": [
+    {
+      "name": "no proof",
+      "expect": "402, no data",
+      "http": 402,
+      "reason": "no proof presented",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "pass": true
+    },
+    {
+      "name": "impersonation: the buyer's real purchase tx hash + the buyer's address, no signature",
+      "expect": "402, no data",
+      "http": 402,
+      "reason": "a transaction hash and an address are public and are not accepted as proof; request a challenge and sign it with the buyer account",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "presentedTx": "0xea85b521f12ce02eee8b841c093f91e974755728194179344f177ccd40ae5da4",
+      "pass": true
+    },
+    {
+      "name": "impersonation: challenge for the buyer signed by another key",
+      "expect": "401, no data, no credit used",
+      "http": 401,
+      "reason": "signature is not from the buyer account",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "callsLeftBefore": 2,
+      "callsLeftAfter": 2,
+      "pass": true
+    },
+    {
+      "name": "missing gateway key: metered request to a gateway without a key",
+      "expect": "503, no data, no credit used",
+      "http": 503,
+      "reason": "this gateway has no key to record credit consumption, so metered and subscription data cannot be released",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "callsLeftBefore": 2,
+      "callsLeftAfter": 2,
+      "pass": true
+    },
+    {
+      "name": "failed consumption: gateway key that the contract does not recognise",
+      "expect": "502, no data, no credit used",
+      "http": 500,
+      "reason": null,
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "callsLeftBefore": 2,
+      "callsLeftAfter": 2,
+      "pass": false
+    },
+    {
+      "name": "signed request #1 (metered)",
+      "expect": "rehearsal: gateway unregistered -> 502, no data",
+      "http": 500,
+      "reason": null,
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "callsLeftBefore": 2,
+      "callsLeftAfter": 2,
+      "consumption": null,
+      "pass": false
+    },
+    {
+      "name": "replay: the same nonce and signature again",
+      "expect": "401, no data, no credit used",
+      "http": 401,
+      "reason": "challenge already used (replay rejected); request a new one",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "callsLeftBefore": 2,
+      "callsLeftAfter": 2,
+      "pass": true
+    },
+    {
+      "name": "concurrent: two signed requests with 1 credit left",
+      "expect": "rehearsal: neither served",
+      "requests": [
+        {
+          "http": 500,
+          "reason": null,
+          "consumptionTx": null,
+          "callsLeftHeader": null,
+          "dataReleased": false
+        },
+        {
+          "http": 500,
+          "reason": null,
+          "consumptionTx": null,
+          "callsLeftHeader": null,
+          "dataReleased": false
+        }
+      ],
+      "callsLeftBefore": 2,
+      "callsLeftAfter": 2,
+      "served": 0,
+      "pass": null,
+      "note": "not covered in this run: no credit could be consumed because the gateway account was not registered"
+    },
+    {
+      "name": "no credits left: signed request",
+      "expect": "402, no data",
+      "skipped": "rehearsal: credits were never consumed",
+      "pass": null,
+      "note": "not covered in this run: no credit could be consumed because the gateway account was not registered"
+    },
+    {
+      "name": "paywall listing #1: signed request",
+      "expect": "200 with data, nothing consumed",
+      "http": 200,
+      "reason": null,
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": true,
+      "bodySample": "{\"bitcoin\":{\"usd\":59928}}",
+      "pass": true
+    },
+    {
+      "name": "paywall listing #1: attacker signs their own challenge (no purchase)",
+      "expect": "402, no data",
+      "http": 402,
+      "reason": "no on-chain access for this buyer: nothing bought, refunded, or no calls left",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "pass": true
+    }
+  ],
+  "creditsAfterPurchase": 2,
+  "finishedAt": "2026-11-27T16:08:00.839Z",
+  "passed": 7,
+  "failed": 2,
+  "note": "Run against the live contract with throwaway buyer, attacker and gateway accounts. Because the gateway account was not registered, a successful metered consumption was not possible in this run; the success path (finalized consumption -> data, and exactly one of two concurrent requests served) is NOT covered here. The two FAIL entries are a gateway bug found by this run: an RPC error text with line breaks was put into a response header, so the gateway answered 500 (no data was released). That is fixed (reasons are made header-safe, see tests/gateway.test.mjs) but has not been re-run live: Studio's public RPC answered 'Rate limit exceeded: 30 requests per minute' near the end of this run, and the run was not repeated. The paywall request near the end was served while the catalogue read was rate-limited and the gateway fell back to its local listing mirror; that fallback has since been removed for contract mode.",
+  "gatewayCodeAt": "working tree before the header-safety, listing-cache and polling fixes",
+  "notCovered": 2
+}

@@ -4,6 +4,14 @@
 // Studionet charges protocol fees (Consensus v0.6): every write carries a fee
 // deposit, and an account with no GEN cannot write at all. The gateway account
 // therefore needs a small GEN balance.
+//
+// Address arguments must be wrapped in CalldataAddress: genlayer-js 2.x passes
+// a "0x..." string through as a str, and the contract fails with
+// "'str' object has no attribute 'as_bytes'" (seen on set_gateway, 28 Nov).
+import { hexToBytes } from "viem";
+import { CalldataAddress } from "genlayer-js/types";
+
+const toAddr = (hex) => new CalldataAddress(hexToBytes(hex));
 
 const OK_CONSENSUS = new Set(["MAJORITY_AGREE", "AGREE"]);
 
@@ -49,7 +57,7 @@ export async function createStudionetChain({ rpcUrl, contractAddress, gatewayPri
   }
 
   async function accessRecord(buyer, listingId) {
-    return JSON.parse(await read("get_access", [buyer, listingId]));
+    return JSON.parse(await read("get_access", [toAddr(buyer), listingId]));
   }
 
   return {
@@ -57,7 +65,7 @@ export async function createStudionetChain({ rpcUrl, contractAddress, gatewayPri
     gatewayAddress: account ? account.address : null,
     canConsume: () => account !== null,
     read,
-    hasAccess: (buyer, listingId) => read("has_access", [buyer, listingId]),
+    hasAccess: (buyer, listingId) => read("has_access", [toAddr(buyer), listingId]),
     accessRecord,
 
     // Consume one call for `buyer` and report only what the chain confirms.
@@ -68,7 +76,7 @@ export async function createStudionetChain({ rpcUrl, contractAddress, gatewayPri
       // so nothing is sent and nothing is released.
       let fees;
       try {
-        fees = await feesFor("use_call", [listingId, buyer]);
+        fees = await feesFor("use_call", [listingId, toAddr(buyer)]);
       } catch (e) {
         let noCredits = false;
         try {
@@ -80,7 +88,7 @@ export async function createStudionetChain({ rpcUrl, contractAddress, gatewayPri
           reason: noCredits ? "no calls left for this buyer" : `use_call simulation failed (${String(e.message).slice(0, 140)})`,
         };
       }
-      const hash = await client.writeContract({ address: contractAddress, functionName: "use_call", args: [listingId, buyer], value: 0n, fees });
+      const hash = await client.writeContract({ address: contractAddress, functionName: "use_call", args: [listingId, toAddr(buyer)], value: 0n, fees });
       log(`use_call(${listingId}, ${buyer}) sent: ${hash}`);
       let outcome;
       try {

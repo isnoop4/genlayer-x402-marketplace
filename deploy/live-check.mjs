@@ -20,6 +20,7 @@ import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { hexToBytes } from "viem";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -40,6 +41,12 @@ const PAUSE_MS = Number(process.env.PAUSE_MS || 25000);
 const { createAccount, createClient } = await import("genlayer-js");
 const { studionet } = await import("genlayer-js/chains");
 const { TransactionStatus } = await import("genlayer-js/types");
+const { CalldataAddress } = await import("genlayer-js/types");
+// genlayer-js 2.x does not convert a "0x..." string into the contract's Address
+// type — the contract then receives a str and fails with
+// "'str' object has no attribute 'as_bytes'" (tx 0x899e509b…754cff1, 28 Nov).
+// Wrap every Address argument in CalldataAddress.
+const addr = (hex) => new CalldataAddress(hexToBytes(hex));
 
 const keys = { gateway: generatePrivateKey(), buyer: generatePrivateKey(), attacker: generatePrivateKey(), stranger: generatePrivateKey() };
 const signer = { buyer: privateKeyToAccount(keys.buyer), attacker: privateKeyToAccount(keys.attacker) };
@@ -96,7 +103,7 @@ async function write(client, label, functionName, args, value = 0n) {
   return hash;
 }
 
-const access = async (who, id) => JSON.parse(await reader.readContract({ address: CONTRACT, functionName: "get_access", args: [who, id] }));
+const access = async (who, id) => JSON.parse(await reader.readContract({ address: CONTRACT, functionName: "get_access", args: [addr(who), id] }));
 
 // Plain http GET with no client-side timeout (finalization can take minutes).
 function get(port, pathname, headers = {}) {
@@ -178,7 +185,7 @@ try {
   await fund(signer.buyer.address, 10);
   if (!REHEARSAL) {
     const owner = clientFor(OWNER_KEY);
-    await write(owner, "set_gateway (owner)", "set_gateway", [gatewayAddress]);
+    await write(owner, "set_gateway (owner)", "set_gateway", [addr(gatewayAddress)]);
   }
   const buyCreditsTx = await write(buyerClient, "buy_credits(2, 2) (buyer)", "buy_credits", [METERED, 2], 200000000000000000n);
   await write(buyerClient, "buy_access(1) (buyer)", "buy_access", [PAYWALL], 1000000000000000000n);

@@ -188,17 +188,47 @@ FINALIZED / MAJORITY_AGREE / FINISHED_WITH_RETURN:
 | Metered request through a gateway key the contract does not recognise | 502, no data, credits unchanged (2 → 2). This is the check that failed with 500 in the first run. |
 | Signed metered request #1, expected 200 after a finalized consumption | **not shown**: the listing's data source (Open-Meteo) answered HTTP 429, so the gateway refused with 502 before consuming a credit (credits 2 → 2, no data). The run was stopped here and not retried. |
 
-**Still not shown live:** a metered request served after a finalized
+**Not shown in this run:** a metered request served after a finalized
 `use_call`, replay of a used proof against the registered gateway, two
 concurrent requests with one credit left, a request with zero credits, and
 the signed paywall flow in this run (the paywall flow and replay were shown
 in the first run above). These are covered by the local tests listed under
 "Focused checks".
 
-The contract's registered gateway is now the throwaway account
-`0x1Fe81E8148Ba54e5b70E8C4DF2bAfAF9Cd0D7673`, whose key was discarded. The
-owner must call `set_gateway` again before running a real gateway. The
-throwaway buyer still holds 2 unused credits on listing #2.
+These were shown in the complete run below.
+
+### Complete live run (2026-11-28): 11 of 11 checks pass
+
+A full run of `deploy/live-check.mjs` against the live contract, recorded in
+`live-check-results.json` (started 2026-11-28T07:27Z, finished 07:35Z).
+Throwaway gateway `0xae1Dc106Ba68bFC5F7E003507410d7f05103aC31`, throwaway buyer
+`0xa2f65baE75585f75d6C9E6345EA3F78C0e105F68`. Every transaction below is
+FINALIZED / MAJORITY_AGREE / FINISHED_WITH_RETURN.
+
+- `set_gateway` by the owner: tx `0xf25afd923cb9e63537ff606b928194f9d226f77d02dd0fdd247831290a1c30ab`
+- `buy_credits(2, 2)` by the buyer: tx `0x24f333a0f467e4ab37bba8ca4492f607267c1e4039b6cd29af1ea7851d8e29da`
+- `buy_access(1)` by the buyer: tx `0xfa5f26dfb78ac8b5b5280c3fac83b94b4bf08959b88367fb23658e98abc02fb3`
+- `use_call` #1 by the gateway: tx `0x1f8aa0fd729f8ee61a71ff317c8d4a519bdf60e9c119d94253290219f653213b`
+- `use_call` #2 by the gateway: tx `0x5fe72d43809fc76f6053e77caa784f0d7062bf98bc5f07d129f4d9ce9e76f058`
+
+| Check | Result |
+|---|---|
+| No proof | 402, no data |
+| The buyer's real purchase tx hash + the buyer's address, no signature | 402, no data |
+| Challenge for the buyer signed by another key | 401, no data, credits 2 → 2 |
+| Metered request to a gateway without a key | 503, no data, credits 2 → 2 |
+| Metered request through a gateway key the contract does not recognise | 502, no data, credits 2 → 2 |
+| Signed metered request #1 | 200 with data, released after `use_call` #1 finalized, credits 2 → 1 |
+| Replay of the same nonce and signature | 401, no data, credits 1 → 1 |
+| Two concurrent signed requests with 1 credit left | exactly one served (200, after `use_call` #2), the other 402 with no data, credits 1 → 0 |
+| Signed request with no credits left | 402, no data, credits stay 0 |
+| Paywall listing #1, signed request by the buyer | 200 with data |
+| Paywall listing #1, attacker signs their own challenge | 402, no data |
+
+After this run the contract's registered gateway is the throwaway account
+above, whose key was discarded. The owner must call `set_gateway` again
+before running a real gateway. Not checked in a real browser: the wallet
+button on the gateway page.
 
 ### Known limits
 
@@ -421,6 +451,7 @@ tests/test_marketplace.py  9 direct-mode contract tests (gltest)
 deploy/live-check.mjs      live run of the gateway rules on studionet
 live-check-partial.json    the partial live run of 2026-11-27 (public data only)
 live-check-2026-11-28.json the second, incomplete live run of 2026-11-28 (public data only)
+live-check-results.json    the complete live run of 2026-11-28, 11 of 11 checks (public data only)
 deploy/deploy.mjs          full deploy + seed + buy + verify (pre-fee, see limits)
 deploy/interact.mjs        buy + verify against an existing deployment (pre-fee)
 deploy/seed.sh             create the 3 listings via the CLI

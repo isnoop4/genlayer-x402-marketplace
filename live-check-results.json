@@ -1,0 +1,184 @@
+{
+  "network": "studionet",
+  "chainId": 61999,
+  "contract": "0x3B0850628992B0F322D1Af7196a9337AdF7655B4",
+  "explorer": "https://explorer-studio.genlayer.com/address/0x3B0850628992B0F322D1Af7196a9337AdF7655B4",
+  "mode": "live",
+  "startedAt": "2026-11-28T07:27:00.736Z",
+  "accounts": {
+    "gateway": "0xae1Dc106Ba68bFC5F7E003507410d7f05103aC31",
+    "buyer": "0xa2f65baE75585f75d6C9E6345EA3F78C0e105F68",
+    "attacker": "0x1Ec40Af0db8EA2b549A5519CE65D00c12Bb175C2"
+  },
+  "transactions": {
+    "set_gateway (owner)": {
+      "tx": "0xf25afd923cb9e63537ff606b928194f9d226f77d02dd0fdd247831290a1c30ab",
+      "status": "FINALIZED",
+      "consensus": "MAJORITY_AGREE",
+      "execution": "FINISHED_WITH_RETURN"
+    },
+    "buy_credits(2, 2) (buyer)": {
+      "tx": "0x24f333a0f467e4ab37bba8ca4492f607267c1e4039b6cd29af1ea7851d8e29da",
+      "status": "FINALIZED",
+      "consensus": "MAJORITY_AGREE",
+      "execution": "FINISHED_WITH_RETURN"
+    },
+    "buy_access(1) (buyer)": {
+      "tx": "0xfa5f26dfb78ac8b5b5280c3fac83b94b4bf08959b88367fb23658e98abc02fb3",
+      "status": "FINALIZED",
+      "consensus": "MAJORITY_AGREE",
+      "execution": "FINISHED_WITH_RETURN"
+    }
+  },
+  "checks": [
+    {
+      "name": "no proof",
+      "expect": "402, no data",
+      "http": 402,
+      "reason": "no proof presented",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "pass": true
+    },
+    {
+      "name": "impersonation: the buyer's real purchase tx hash + the buyer's address, no signature",
+      "expect": "402, no data",
+      "http": 402,
+      "reason": "a transaction hash and an address are public and are not accepted as proof; request a challenge and sign it with the buyer account",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "presentedTx": "0x24f333a0f467e4ab37bba8ca4492f607267c1e4039b6cd29af1ea7851d8e29da",
+      "pass": true
+    },
+    {
+      "name": "impersonation: challenge for the buyer signed by another key",
+      "expect": "401, no data, no credit used",
+      "http": 401,
+      "reason": "signature is not from the buyer account",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "callsLeftBefore": 2,
+      "callsLeftAfter": 2,
+      "pass": true
+    },
+    {
+      "name": "missing gateway key: metered request to a gateway without a key",
+      "expect": "503, no data, no credit used",
+      "http": 503,
+      "reason": "this gateway has no key to record credit consumption, so metered and subscription data cannot be released",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "callsLeftBefore": 2,
+      "callsLeftAfter": 2,
+      "pass": true
+    },
+    {
+      "name": "failed consumption: gateway key that the contract does not recognise",
+      "expect": "502, no data, no credit used",
+      "http": 502,
+      "reason": "credit consumption failed: use_call simulation failed (Missing or invalid parameters. Double check you have provided the correct parameters. Details: execution failed Version: viem@2.58.8); no data released",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "callsLeftBefore": 2,
+      "callsLeftAfter": 2,
+      "pass": true
+    },
+    {
+      "name": "signed request #1 (metered)",
+      "expect": "200 with data, consumption FINALIZED, credits 2 -> 1",
+      "http": 200,
+      "reason": null,
+      "consumptionTx": "0x1f8aa0fd729f8ee61a71ff317c8d4a519bdf60e9c119d94253290219f653213b",
+      "callsLeftHeader": "1",
+      "dataReleased": true,
+      "bodySample": "{\"latitude\":-6.221441,\"longitude\":106.78094,\"generationtime_ms\":0.13566017150878906,\"utc_o",
+      "callsLeftBefore": 2,
+      "callsLeftAfter": 1,
+      "consumption": {
+        "tx": "0x1f8aa0fd729f8ee61a71ff317c8d4a519bdf60e9c119d94253290219f653213b",
+        "status": "FINALIZED",
+        "consensus": "MAJORITY_AGREE",
+        "execution": "FINISHED_WITH_RETURN"
+      },
+      "pass": true
+    },
+    {
+      "name": "replay: the same nonce and signature again",
+      "expect": "401, no data, no credit used",
+      "http": 401,
+      "reason": "challenge already used (replay rejected); request a new one",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "callsLeftBefore": 1,
+      "callsLeftAfter": 1,
+      "pass": true
+    },
+    {
+      "name": "concurrent: two signed requests with 1 credit left",
+      "expect": "exactly one served, credits end at 0",
+      "requests": [
+        {
+          "http": 200,
+          "reason": null,
+          "consumptionTx": "0x5fe72d43809fc76f6053e77caa784f0d7062bf98bc5f07d129f4d9ce9e76f058",
+          "callsLeftHeader": "0",
+          "dataReleased": true,
+          "bodySample": "{\"latitude\":-6.221441,\"longitude\":106.78094,\"generationtime_ms\":0.1385211944580078,\"utc_of"
+        },
+        {
+          "http": 402,
+          "reason": "no on-chain access for this buyer: nothing bought, refunded, or no calls left",
+          "consumptionTx": null,
+          "callsLeftHeader": null,
+          "dataReleased": false
+        }
+      ],
+      "callsLeftBefore": 1,
+      "callsLeftAfter": 0,
+      "served": 1,
+      "pass": true
+    },
+    {
+      "name": "no credits left: signed request",
+      "expect": "402, no data",
+      "http": 402,
+      "reason": "no on-chain access for this buyer: nothing bought, refunded, or no calls left",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "callsLeftAfter": 0,
+      "pass": true
+    },
+    {
+      "name": "paywall listing #1: signed request",
+      "expect": "200 with data, nothing consumed",
+      "http": 200,
+      "reason": null,
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": true,
+      "bodySample": "{\"bitcoin\":{\"usd\":59635}}",
+      "pass": true
+    },
+    {
+      "name": "paywall listing #1: attacker signs their own challenge (no purchase)",
+      "expect": "402, no data",
+      "http": 402,
+      "reason": "no on-chain access for this buyer: nothing bought, refunded, or no calls left",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "pass": true
+    }
+  ],
+  "creditsAfterPurchase": 2,
+  "finishedAt": "2026-11-28T07:35:35.366Z",
+  "passed": 11,
+  "failed": 0
+}

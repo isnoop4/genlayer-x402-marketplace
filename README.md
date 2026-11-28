@@ -135,7 +135,7 @@ throwaway keys. Run locally on 2026-11-27: 38 passed; the browser check
 printed `PASS executed=0 forbiddenElements=0 inlineHandlers=0 badLinks=0
 payloadsShownAsText=6/6 cards=6`; lint passed; 9 contract tests passed.
 
-### Live status of the new flow (2026-11-27)
+### First live run (2026-11-27): partial, gateway not registered
 
 `deploy/live-check.mjs` runs the rules against the live contract with
 throwaway accounts and real gateway processes. One **partial** run exists,
@@ -165,6 +165,40 @@ with zero credits. They need the owner to register a gateway account
 stopped being repeatable when Studio's public RPC answered "Rate limit
 exceeded: 30 requests per minute"; the gateway now caches the catalogue
 and the script paces its checks.
+
+### Second live run (2026-11-28): gateway registered, stopped early
+
+After a fix to how the scripts pass `Address` arguments (they must be sent
+as a calldata address, not as a hex string; an earlier `set_gateway` attempt,
+tx `0x899e509b6685faca4425abe488ebec877a6b3d270b26b72b4d79aa179754cff1`,
+finished with an error for that reason), `deploy/live-check.mjs` was run
+again. Recorded in `live-check-2026-11-28.json`. All three transactions are
+FINALIZED / MAJORITY_AGREE / FINISHED_WITH_RETURN:
+
+- `set_gateway` by the owner: tx `0x5b42da8a06446720d9dcde5ac60e58dcedbb719c928b18791ed911200928d32b`
+- `buy_credits(2, 2)` by the throwaway buyer `0x23f99BF8063B1019Bb1807926fCeAafA0A0bDafe`: tx `0x5a291694445c2eea5e2cdcb3fa488ea1664caa37e24c83b4aef960bc242d18ba`
+- `buy_access(1)` by the same buyer: tx `0xa3735421cbfc1222fee5ca2036054da10f67edf6ca249d0f2894421f0f4d6ae7`
+
+| Check | Result |
+|---|---|
+| No proof | 402, no data |
+| The buyer's real purchase tx hash + the buyer's address, no signature | 402, no data |
+| Challenge for the buyer signed by another key | 401, no data, credits unchanged (2 → 2) |
+| Metered request to a gateway without a key | 503, no data, credits unchanged (2 → 2) |
+| Metered request through a gateway key the contract does not recognise | 502, no data, credits unchanged (2 → 2). This is the check that failed with 500 in the first run. |
+| Signed metered request #1, expected 200 after a finalized consumption | **not shown**: the listing's data source (Open-Meteo) answered HTTP 429, so the gateway refused with 502 before consuming a credit (credits 2 → 2, no data). The run was stopped here and not retried. |
+
+**Still not shown live:** a metered request served after a finalized
+`use_call`, replay of a used proof against the registered gateway, two
+concurrent requests with one credit left, a request with zero credits, and
+the signed paywall flow in this run (the paywall flow and replay were shown
+in the first run above). These are covered by the local tests listed under
+"Focused checks".
+
+The contract's registered gateway is now the throwaway account
+`0x1Fe81E8148Ba54e5b70E8C4DF2bAfAF9Cd0D7673`, whose key was discarded. The
+owner must call `set_gateway` again before running a real gateway. The
+throwaway buyer still holds 2 unused credits on listing #2.
 
 ### Known limits
 
@@ -386,6 +420,7 @@ tests/browser/             real-browser injected-markup check
 tests/test_marketplace.py  9 direct-mode contract tests (gltest)
 deploy/live-check.mjs      live run of the gateway rules on studionet
 live-check-partial.json    the partial live run of 2026-11-27 (public data only)
+live-check-2026-11-28.json the second, incomplete live run of 2026-11-28 (public data only)
 deploy/deploy.mjs          full deploy + seed + buy + verify (pre-fee, see limits)
 deploy/interact.mjs        buy + verify against an existing deployment (pre-fee)
 deploy/seed.sh             create the 3 listings via the CLI

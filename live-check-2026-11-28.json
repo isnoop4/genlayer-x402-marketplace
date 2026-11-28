@@ -1,0 +1,109 @@
+{
+  "network": "studionet",
+  "chainId": 61999,
+  "contract": "0x3B0850628992B0F322D1Af7196a9337AdF7655B4",
+  "explorer": "https://explorer-studio.genlayer.com/address/0x3B0850628992B0F322D1Af7196a9337AdF7655B4",
+  "mode": "incomplete live run: stopped when the data source of listing #2 (Open-Meteo) answered HTTP 429; not retried",
+  "startedAt": "2026-11-28T07:05:24.338Z",
+  "accounts": {
+    "gateway": "0x1Fe81E8148Ba54e5b70E8C4DF2bAfAF9Cd0D7673",
+    "buyer": "0x23f99BF8063B1019Bb1807926fCeAafA0A0bDafe",
+    "attacker": "0x2d683437c22913f0cf7Bb39Bb9fC766F51162644"
+  },
+  "transactions": {
+    "set_gateway (owner)": {
+      "tx": "0x5b42da8a06446720d9dcde5ac60e58dcedbb719c928b18791ed911200928d32b",
+      "status": "FINALIZED",
+      "consensus": "MAJORITY_AGREE",
+      "execution": "FINISHED_WITH_RETURN"
+    },
+    "buy_credits(2, 2) (buyer)": {
+      "tx": "0x5a291694445c2eea5e2cdcb3fa488ea1664caa37e24c83b4aef960bc242d18ba",
+      "status": "FINALIZED",
+      "consensus": "MAJORITY_AGREE",
+      "execution": "FINISHED_WITH_RETURN"
+    },
+    "buy_access(1) (buyer)": {
+      "tx": "0xa3735421cbfc1222fee5ca2036054da10f67edf6ca249d0f2894421f0f4d6ae7",
+      "status": "FINALIZED",
+      "consensus": "MAJORITY_AGREE",
+      "execution": "FINISHED_WITH_RETURN"
+    }
+  },
+  "checks": [
+    {
+      "name": "no proof",
+      "expect": "402, no data",
+      "http": 402,
+      "reason": "no proof presented",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "pass": true
+    },
+    {
+      "name": "impersonation: the buyer's real purchase tx hash + the buyer's address, no signature",
+      "expect": "402, no data",
+      "http": 402,
+      "reason": "a transaction hash and an address are public and are not accepted as proof; request a challenge and sign it with the buyer account",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "presentedTx": "0x5a291694445c2eea5e2cdcb3fa488ea1664caa37e24c83b4aef960bc242d18ba",
+      "pass": true
+    },
+    {
+      "name": "impersonation: challenge for the buyer signed by another key",
+      "expect": "401, no data, no credit used",
+      "http": 401,
+      "reason": "signature is not from the buyer account",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "callsLeftBefore": 2,
+      "callsLeftAfter": 2,
+      "pass": true
+    },
+    {
+      "name": "missing gateway key: metered request to a gateway without a key",
+      "expect": "503, no data, no credit used",
+      "http": 503,
+      "reason": "this gateway has no key to record credit consumption, so metered and subscription data cannot be released",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "callsLeftBefore": 2,
+      "callsLeftAfter": 2,
+      "pass": true
+    },
+    {
+      "name": "failed consumption: gateway key that the contract does not recognise",
+      "expect": "502, no data, no credit used",
+      "http": 502,
+      "reason": "credit consumption failed: use_call simulation failed (Missing or invalid parameters. Double check you have provided the correct parameters. Details: execution failed Version: viem@2.58.8); no data released",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "callsLeftBefore": 2,
+      "callsLeftAfter": 2,
+      "pass": true
+    },
+    {
+      "name": "signed request #1 (metered)",
+      "expect": "200 with data, consumption FINALIZED, credits 2 -> 1",
+      "http": 502,
+      "reason": "upstream returned 429; no credit consumed",
+      "consumptionTx": null,
+      "callsLeftHeader": null,
+      "dataReleased": false,
+      "callsLeftBefore": 2,
+      "callsLeftAfter": 2,
+      "consumption": null,
+      "pass": false
+    }
+  ],
+  "creditsAfterPurchase": 2,
+  "stoppedAt": "2026-11-28T07:10Z (approx.)",
+  "passed": 5,
+  "failed": 1
+}
